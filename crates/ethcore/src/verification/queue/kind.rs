@@ -125,10 +125,11 @@ pub mod blocks {
             check_seal: bool,
         ) -> Result<Self::Verified, Error> {
             let hash = un.hash();
+            let number = un.header.number();
             match verify_block_unordered(un, engine, check_seal) {
                 Ok(verified) => Ok(verified),
                 Err(e) => {
-                    warn!(target: "client", "Stage 2 block verification failed for {}: {:?}", hash, e);
+                    warn!(target: "client", "Stage 2 block {} verification failed for {:}: {:?}", number, hash, e);
                     Err(e)
                 }
             }

@@ -21,7 +21,7 @@ use crate::{
     hash::{keccak, KECCAK_EMPTY_LIST_RLP, KECCAK_NULL_RLP},
     BlockNumber,
 };
-use ethereum_types::{Address, Bloom, H256, U256};
+use ethereum_types::{Address, Bloom, H256, U256, H64};
 use parity_util_mem::MallocSizeOf;
 use rlp::{DecoderError, Encodable, Rlp, RlpStream};
 
@@ -215,6 +215,17 @@ impl Header {
     /// Get the difficulty field of the header.
     pub fn difficulty(&self) -> &U256 {
         &self.difficulty
+    }
+
+    // XBlock The Merge
+    pub fn mix_hash(&self, miaomi: u8) -> H256 {
+        if self.seal().len() == 0 {
+            H256::zero()
+        }
+        else {
+            let mix_hash = Rlp::new(self.seal()[0].as_ref()).as_val::<H256>().unwrap();
+            mix_hash
+        }
     }
 
     /// Get the seal field of the header.

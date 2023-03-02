@@ -1156,7 +1156,14 @@ impl<Cost: CostType> Interpreter<Cost> {
                 self.stack.push(U256::from(ext.env_info().number));
             }
             instructions::DIFFICULTY => {
-                self.stack.push(ext.env_info().difficulty.clone());
+                // XBlock The Merge
+                if ext.env_info().number < 15537394 {
+                    self.stack.push(ext.env_info().difficulty.clone());
+                } 
+                else {
+                    // println!("{} instructions::DIFFICULTY {}", &ext.env_info().number, &ext.env_info().mix_hash);
+                    self.stack.push(ext.env_info().mix_hash.into_uint());
+                }
             }
             instructions::GASLIMIT => {
                 self.stack.push(ext.env_info().gas_limit.clone());

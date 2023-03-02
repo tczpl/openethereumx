@@ -45,3 +45,4 @@ rls/
 
 # cargo remote artifacts
 remote-target
+buildrun.sh

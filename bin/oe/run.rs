@@ -238,8 +238,9 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
             warn!("Warning: Warp Sync is disabled because Fat DB is turned on.");
             warp_sync = false;
         } else if tracing {
+            // TODO: XBlock does not disable it
             warn!("Warning: Warp Sync is disabled because tracing is turned on.");
-            warp_sync = false;
+            // warp_sync = false;
         } else if algorithm != Algorithm::OverlayRecent {
             warn!("Warning: Warp Sync is disabled because of non-default pruning mode.");
             warp_sync = false;

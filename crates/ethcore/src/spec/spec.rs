@@ -859,6 +859,7 @@ impl Spec {
                 gas_used: U256::zero(),
                 gas_limit: U256::max_value(),
                 base_fee: None,
+                mix_hash: H256::zero(),
             };
 
             if !self.constructors.is_empty() {
@@ -1081,6 +1082,7 @@ impl Spec {
                 last_hashes: Arc::new(Vec::new()),
                 gas_used: 0.into(),
                 base_fee: genesis.base_fee(),
+                mix_hash: genesis.mix_hash(7),
             };
 
             let from = Address::default();

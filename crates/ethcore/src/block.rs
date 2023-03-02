@@ -141,6 +141,7 @@ impl ExecutedBlock {
             gas_used: self.receipts.last().map_or(U256::zero(), |r| r.gas_used),
             gas_limit: *self.header.gas_limit(),
             base_fee: self.header.base_fee(),
+            mix_hash: self.header.mix_hash(5),
         }
     }
 
@@ -336,6 +337,8 @@ impl<'x> OpenBlock<'x> {
         self.block
             .header
             .set_transactions_root(*header.transactions_root());
+        self.block
+            .header.set_seal(header.seal().to_vec());
         // TODO: that's horrible. set only for backwards compatibility
         if header.extra_data().len() > self.engine.maximum_extra_data_size() {
             warn!("Couldn't set extradata. Ignoring.");
@@ -362,12 +365,15 @@ impl<'x> OpenBlock<'x> {
         let mut s = self;
 
         // t_nb 8.5.1 engine applies block rewards (Ethash and AuRa do.Clique is empty)
+        warn!("close_and_lock 1 {}", s.block.header.number());
         s.engine.on_close_block(&mut s.block)?;
 
         // t_nb 8.5.2 commit account changes from cache to tree
+        warn!("close_and_lock 2 {}", s.block.header.number());
         s.block.state.commit()?;
 
         // t_nb 8.5.3 fill open block header with all other fields
+        warn!("close_and_lock 3 {}", s.block.header.number());
         s.block.header.set_transactions_root(ordered_trie_root(
             s.block.transactions.iter().map(|e| e.encode()),
         ));

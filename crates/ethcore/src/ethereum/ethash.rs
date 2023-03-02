@@ -273,6 +273,11 @@ impl Engine<EthereumMachine> for Arc<Ethash> {
     /// This assumes that all uncles are valid uncles (i.e. of at least one generation before the current).
     fn on_close_block(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
         use std::ops::Shr;
+        // XBlock The Merge
+        // if block.header.number() >= 15537394 {
+        //     warn!("on_close_block {}", block.header.number());
+        //     return Ok(())
+        // }
 
         let author = *block.header.author();
         let number = block.header.number();
@@ -352,6 +357,12 @@ impl Engine<EthereumMachine> for Arc<Ethash> {
     }
 
     fn verify_block_basic(&self, header: &Header) -> Result<(), Error> {
+        // XBlock The Merge
+        if header.number() >= 15537394 {
+            // warn!("verify_block_basic {} Ok", header.number());
+            return Ok(());
+        }
+
         // check the seal fields.
         let seal = Seal::parse_seal(header.seal())?;
 
@@ -384,6 +395,12 @@ impl Engine<EthereumMachine> for Arc<Ethash> {
     }
 
     fn verify_block_unordered(&self, header: &Header) -> Result<(), Error> {
+        // XBlock The Merge
+        if header.number() >= 15537394 {
+            // warn!("ethereum verify_block_unordered {} {} Ok len={}", header.number(), header.hash(), header.seal().len());
+            return Ok(())
+        }
+
         let seal = Seal::parse_seal(header.seal())?;
 
         let result = self.pow.compute_light(
@@ -419,6 +436,12 @@ impl Engine<EthereumMachine> for Arc<Ethash> {
     }
 
     fn verify_block_family(&self, header: &Header, parent: &Header) -> Result<(), Error> {
+        // XBlock The Merge
+        if header.number() >= 15537394 {
+            // warn!("verify_block_family {} Ok", header.number());
+            return Ok(())
+        }
+
         // we should not calculate difficulty for genesis blocks
         if header.number() == 0 {
             return Err(From::from(BlockError::RidiculousNumber(OutOfBounds {

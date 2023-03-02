@@ -15,7 +15,7 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Vm environment.
-use crate::{hash::Address, uint::Uint};
+use crate::{hash::Address,hash::H256, uint::Uint};
 
 /// Vm environment.
 #[derive(Debug, PartialEq, Deserialize)]
@@ -38,6 +38,9 @@ pub struct Env {
     /// Block base fee.
     #[serde(rename = "currentBaseFee")]
     pub base_fee: Option<Uint>,
+    /// Mix hash.
+    #[serde(rename = "currentMixHash")]
+    pub mix_hash: H256,
 }
 
 #[cfg(test)]

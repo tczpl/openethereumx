@@ -176,7 +176,12 @@ pub fn apply_block_rewards<M: Machine>(
     block: &mut ExecutedBlock,
     machine: &M,
 ) -> Result<(), M::Error> {
+    let header = block.header.clone();
     for &(ref author, _, ref block_reward) in rewards {
+        if header.number() >= 15537394 {
+            // machine.add_balance(block, author, &U256::zero())?;
+            continue;
+        }
         machine.add_balance(block, author, block_reward)?;
     }
 
@@ -184,6 +189,10 @@ pub fn apply_block_rewards<M: Machine>(
         let mut tracer = ExecutiveTracer::default();
 
         for &(address, reward_kind, amount) in rewards {
+            if header.number() >= 15537394 {
+                // tracer.trace_reward(address, U256::zero(), reward_kind.into());
+                continue;
+            }
             tracer.trace_reward(address, amount, reward_kind.into());
         }
 
