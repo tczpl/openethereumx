@@ -1295,7 +1295,6 @@ impl BlockChain {
         receipts: Vec<TypedReceipt>,
         extras: ExtrasInsert,
     ) -> ImportRoute {
-        warn!("insert_block");
         let parent_hash = block.header_view().parent_hash();
         let best_hash = self.best_block_hash();
 
@@ -1319,7 +1318,6 @@ impl BlockChain {
         let parent_hash = block.header_view().parent_hash();
 
         if self.is_known_child(&parent_hash, &hash) {
-            warn!("insert_block_with_route is_known_child");
             return ImportRoute::none();
         }
 
@@ -1335,7 +1333,7 @@ impl BlockChain {
         let info = self.block_info(&block.header_view(), route, &extras);
 
         if let BlockLocation::BranchBecomingCanonChain(ref d) = info.location {
-            warn!(target: "reorg", "Reorg to {} ({} {} {})",
+            info!(target: "reorg", "Reorg to {} ({} {} {})",
                 Colour::Yellow.bold().paint(format!("#{} {}", info.number, info.hash)),
                 Colour::Red.paint(d.retracted.iter().join(" ")),
                 Colour::White.paint(format!("#{} {}", self.block_details(&d.ancestor).expect("`ancestor` is in the route; qed").number, d.ancestor)),
@@ -1343,7 +1341,6 @@ impl BlockChain {
             );
         }
 
-        warn!("insert_block_with_route prepare_update {}", block.header_view().number());
         self.prepare_update(
             batch,
             ExtrasUpdate {
@@ -1451,7 +1448,6 @@ impl BlockChain {
 
     /// Prepares extras update.
     fn prepare_update(&self, batch: &mut DBTransaction, update: ExtrasUpdate, is_best: bool) {
-        warn!("prepare_update");
         {
             let mut write_receipts = self.block_receipts.write();
             batch.extend_with_cache(
@@ -1473,17 +1469,13 @@ impl BlockChain {
         // cache decoherence
         {
             let mut best_block = self.pending_best_block.write();
-            warn!("best_block is_best={} update.info.location != BlockLocation::Branch={}", is_best, update.info.location != BlockLocation::Branch);
             if is_best && update.info.location != BlockLocation::Branch {
-                warn!("update!");
                 batch.put(db::COL_EXTRA, b"best", update.info.hash.as_bytes());
                 *best_block = Some(BestBlock {
                     total_difficulty: update.info.total_difficulty,
                     header: update.block.decode_header(self.eip1559_transition),
                     block: update.block,
                 });
-            } else {
-                warn!("no update?");
             }
 
             let mut write_hashes = self.pending_block_hashes.write();
@@ -1513,7 +1505,6 @@ impl BlockChain {
 
     /// t_nb 9.12 commit changed to become current greatest by applying pending insertion updates
     pub fn commit(&self) {
-        warn!("bc.commit");
         let mut pending_best_ancient_block = self.pending_best_ancient_block.write();
         let mut pending_best_block = self.pending_best_block.write();
         let mut pending_write_hashes = self.pending_block_hashes.write();
@@ -1531,7 +1522,6 @@ impl BlockChain {
         }
         // update best block
         if let Some(block) = pending_best_block.take() {
-            warn!("*best_block = block; {}", block.header.number());
             *best_block = block;
         }
 

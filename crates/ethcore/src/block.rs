@@ -365,15 +365,12 @@ impl<'x> OpenBlock<'x> {
         let mut s = self;
 
         // t_nb 8.5.1 engine applies block rewards (Ethash and AuRa do.Clique is empty)
-        warn!("close_and_lock 1 {}", s.block.header.number());
         s.engine.on_close_block(&mut s.block)?;
 
         // t_nb 8.5.2 commit account changes from cache to tree
-        warn!("close_and_lock 2 {}", s.block.header.number());
         s.block.state.commit()?;
 
         // t_nb 8.5.3 fill open block header with all other fields
-        warn!("close_and_lock 3 {}", s.block.header.number());
         s.block.header.set_transactions_root(ordered_trie_root(
             s.block.transactions.iter().map(|e| e.encode()),
         ));

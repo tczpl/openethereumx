@@ -110,7 +110,6 @@ pub fn verify_block_unordered(
     engine: &dyn EthEngine,
     check_seal: bool,
 ) -> Result<PreverifiedBlock, Error> {
-    // warn!("verification verify_block_unordered {} seal.len={}", block.header.number(), block.header.seal().len() );
     let header = block.header;
     if check_seal {
         // t_nb 5.1

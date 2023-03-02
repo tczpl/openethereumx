@@ -316,12 +316,8 @@ impl Importer {
             trace_time!("import_verified_blocks");
             let start = Instant::now();
 
-            warn!("import_verified_blocks len={}", blocks.len());
             for block in blocks {
                 let header = block.header.clone();
-                // if header.number() > 15537420 {
-                //     panic!("!!!");
-                // }
                 let bytes = block.bytes.clone();
                 let hash = header.hash();
 
@@ -343,7 +339,7 @@ impl Importer {
                     Ok((closed_block, pending)) => {
                         imported_blocks.push(hash);
                         let transactions_len = closed_block.transactions.len();
-                        warn!(target:"block_import","Block #{}({}) check pass",header.number(),header.hash());
+                        trace!(target:"block_import","Block #{}({}) check pass",header.number(),header.hash());
                         // t_nb 8.0 commit block to db
                         let route = self.commit_block(
                             closed_block,
@@ -352,7 +348,7 @@ impl Importer {
                             pending,
                             client,
                         );
-                        warn!(target:"block_import","Block #{}({}) commited",header.number(),header.hash());
+                        trace!(target:"block_import","Block #{}({}) commited",header.number(),header.hash());
                         import_results.push(route);
                         client
                             .report
@@ -420,7 +416,7 @@ impl Importer {
                 });
             }
         }
-        warn!(target:"block_import","Flush block to db");
+        trace!(target:"block_import","Flush block to db");
         let db = client.db.read();
         db.key_value().flush().expect("DB flush failed.");
 
@@ -774,9 +770,7 @@ impl Importer {
         // t_nb 9.11 Write Transaction to database (cached)
         client.db.read().key_value().write_buffered(batch);
         // t_nb 9.12 commit changed to become current greatest by applying pending insertion updates (Sync point)
-        warn!("commit_block chain.commit()");
         chain.commit();
-        warn!("best_block_number={}", chain.best_block_number());
 
         // t_nb 9.13 check epoch end. Related only to AuRa and it seems light engine
         self.check_epoch_end(&header, &finalized, &chain, client);
@@ -785,8 +779,7 @@ impl Importer {
         client.update_last_hashes(&parent, hash);
 
         // t_nb 9.15 prune ancient states
-        warn!("t_nb 9.15 prune ancient states");
-        if let Err(e) = client.prune_ancient(state, &chain, 1) {
+        if let Err(e) = client.prune_ancient(state, &chain) {
             warn!("Failed to prune ancient state data: {}", e);
         }
 
@@ -978,7 +971,7 @@ impl Client {
             chain.clone(),
         ));
 
-        warn!(
+        trace!(
             "Cleanup journal: DB Earliest = {:?}, Latest = {:?}",
             state_db.journal_db().earliest_era(),
             state_db.journal_db().latest_era()
@@ -1098,7 +1091,7 @@ impl Client {
             warn!("prune old states.");
             let state_db = client.state_db.read().boxed_clone();
             let chain = client.chain.read();
-            client.prune_ancient(state_db, &chain, 2)?;
+            client.prune_ancient(state_db, &chain)?;
         }
 
         // ensure genesis epoch proof in the DB.
@@ -1278,8 +1271,7 @@ impl Client {
     fn prune_ancient(
         &self,
         mut state_db: StateDB,
-        chain: &BlockChain,
-        miaomi: u8,
+        chain: &BlockChain
     ) -> Result<(), ::error::Error> {
         let latest_era = match state_db.journal_db().latest_era() {
             Some(n) => n,
@@ -1292,7 +1284,6 @@ impl Client {
             let needs_pruning = state_db.journal_db().is_pruned()
                 && state_db.journal_db().journal_size() >= self.config.history_mem;
 
-            warn!("prune_ancient {} needs_pruning={}", miaomi, needs_pruning);
             if !needs_pruning {
                 break;
             }
@@ -1303,11 +1294,11 @@ impl Client {
                         // Note: journal_db().mem_used() can be used for a more accurate memory
                         // consumption measurement but it can be expensive so sticking with the
                         // faster `journal_size()` instead.
-                        warn!(target: "pruning", "Pruning is paused at era {} (snapshot under way); earliest era={}, latest era={}, journal_size={} – Not pruning.",
+                        trace!(target: "pruning", "Pruning is paused at era {} (snapshot under way); earliest era={}, latest era={}, journal_size={} – Not pruning.",
 						       freeze_at, earliest_era, latest_era, state_db.journal_db().journal_size());
                         break;
                     }
-                    warn!(target: "client", "Pruning state for ancient era {}", earliest_era);
+                    trace!(target: "client", "Pruning state for ancient era {}", earliest_era);
                     match chain.block_hash(earliest_era) {
                         Some(ancient_hash) => {
                             let mut batch = DBTransaction::new();
@@ -1316,15 +1307,12 @@ impl Client {
                             state_db.journal_db().flush();
                         }
                         None => {
-                            warn!(target: "client", "{} Missing expected hash for block {}", miaomi, earliest_era);
+                            debug!(target: "client", "Missing expected hash for block {}", earliest_era);
                             panic!("?");
                         }
                     }
                 }
-                _ => {
-                    warn!("prune_ancient {} every era is kept, no pruning necessary.", miaomi);
-                    break; // means that every era is kept, no pruning necessary.
-                }
+                _ => break, // means that every era is kept, no pruning necessary.
             }
         }
 
@@ -1768,7 +1756,6 @@ impl snapshot::DatabaseRestore for Client {
 
 impl BlockChainReset for Client {
     fn reset(&self, num: u32) -> Result<(), String> {
-        warn!("reset {} {}", num, self.pruning_history());
         if num as u64 > self.pruning_history() {
             return Err("Attempting to reset to block with pruned state".into());
         } else if num == 0 {

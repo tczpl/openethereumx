@@ -273,11 +273,6 @@ impl Engine<EthereumMachine> for Arc<Ethash> {
     /// This assumes that all uncles are valid uncles (i.e. of at least one generation before the current).
     fn on_close_block(&self, block: &mut ExecutedBlock) -> Result<(), Error> {
         use std::ops::Shr;
-        // XBlock The Merge
-        // if block.header.number() >= 15537394 {
-        //     warn!("on_close_block {}", block.header.number());
-        //     return Ok(())
-        // }
 
         let author = *block.header.author();
         let number = block.header.number();
