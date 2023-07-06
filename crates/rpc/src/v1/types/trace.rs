@@ -397,6 +397,8 @@ pub enum Action {
     Suicide(Suicide),
     /// Reward
     Reward(Reward),
+    // Withdrawal
+    // Withdrawal(Withdrawal),
 }
 
 impl From<trace::Action> for Action {

@@ -1596,6 +1596,8 @@ impl miner::MinerService for Miner {
                 header: b.header.clone(),
                 transactions: b.transactions.iter().cloned().map(Into::into).collect(),
                 uncles: b.uncles.to_vec(),
+                // XBlock Shanghai
+                withdrawals: None,
             },
             latest_block_number,
         )

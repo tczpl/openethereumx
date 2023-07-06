@@ -38,7 +38,7 @@ use call_contract::CallContract;
 use client::BlockInfo;
 use engines::{EthEngine, MAX_UNCLE_AGE};
 use error::{BlockError, Error};
-use types::{header::Header, transaction::SignedTransaction, BlockNumber};
+use types::{header::Header, transaction::SignedTransaction, withdrawal::Withdrawal, BlockNumber};
 use verification::queue::kind::blocks::Unverified;
 
 use time_utils::CheckedSystemTime;
@@ -52,6 +52,8 @@ pub struct PreverifiedBlock {
     pub transactions: Vec<SignedTransaction>,
     /// Populated block uncles
     pub uncles: Vec<Header>,
+    /// XBlock Shanghai
+    pub withdrawals: Option<Vec<Withdrawal>>,
     /// Block bytes
     pub bytes: Bytes,
 }
@@ -143,10 +145,12 @@ pub fn verify_block_unordered(
         })
         .collect::<Result<Vec<_>, Error>>()?;
 
+    // XBlock Shanghai TODO: check withdrawls_root
     Ok(PreverifiedBlock {
         header,
         transactions,
         uncles: block.uncles,
+        withdrawals: block.withdrawals,
         bytes: block.bytes,
     })
 }

@@ -181,6 +181,9 @@ enum_with_from_u8! {
         #[doc = "set a potential jump destination"]
         JUMPDEST = 0x5b,
 
+        // XBlock Shanghai
+        #[doc = "place 0 on stack"]
+        PUSH0 = 0x5f,
         #[doc = "place 1 byte item on stack"]
         PUSH1 = 0x60,
         #[doc = "place 2 byte item on stack"]
@@ -532,6 +535,8 @@ lazy_static! {
         arr[MSIZE as usize] = Some(InstructionInfo::new("MSIZE", 0, 1, GasPriceTier::Base));
         arr[GAS as usize] = Some(InstructionInfo::new("GAS", 0, 1, GasPriceTier::Base));
         arr[JUMPDEST as usize] = Some(InstructionInfo::new("JUMPDEST", 0, 0, GasPriceTier::Special));
+        // XBlock Shanghai
+        arr[PUSH1 as usize] = Some(InstructionInfo::new("PUSH0", 0, 1, GasPriceTier::Base));
         arr[PUSH1 as usize] = Some(InstructionInfo::new("PUSH1", 0, 1, GasPriceTier::VeryLow));
         arr[PUSH2 as usize] = Some(InstructionInfo::new("PUSH2", 0, 1, GasPriceTier::VeryLow));
         arr[PUSH3 as usize] = Some(InstructionInfo::new("PUSH3", 0, 1, GasPriceTier::VeryLow));

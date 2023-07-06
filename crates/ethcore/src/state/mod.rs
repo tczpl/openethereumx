@@ -60,6 +60,7 @@ mod substate;
 pub mod backend;
 
 pub use self::{account::Account, backend::Backend, substate::Substate};
+use block::XStateDiff;
 
 /// Used to return information about an `State::apply` operation.
 pub struct ApplyOutcome<T, V> {
@@ -954,12 +955,17 @@ impl<B: Backend> State<B> {
             TransactionOutcome::StateRoot(self.root().clone())
         };
 
+
+        info!("tx={:?} cumulative_gas_used={}", t.hash(), &e.cumulative_gas_used);
+        // self.commit_with_tx(&t.hash())?;
+        
         let output = e.output;
         let receipt = TypedReceipt::new(
             t.tx_type(),
             LegacyReceipt::new(outcome, e.cumulative_gas_used, e.logs),
         );
         trace!(target: "state", "Transaction receipt: {:?}", receipt);
+        info!("Transaction receipt: {:?}", receipt);
 
         Ok(ApplyOutcome {
             receipt,
@@ -1038,6 +1044,55 @@ impl<B: Backend> State<B> {
 
         Ok(())
     }
+
+
+    /// t_nb 8.5.2 Commits our cached account changes into the trie.
+    pub fn commit_with_tx(&mut self, txhash: &H256) -> Result<(), Error> {
+        assert!(self.checkpoints.borrow().is_empty());
+        // first, commit the sub trees.
+        let mut accounts = self.cache.borrow_mut();
+        for (address, ref mut a) in accounts.iter_mut().filter(|&(_, ref a)| a.is_dirty()) {
+            if let Some(ref mut account) = a.account {
+                let addr_hash = account.address_hash(address);
+                {
+                    let mut account_db = self
+                        .factories
+                        .accountdb
+                        .create(self.db.as_hash_db_mut(), addr_hash);
+
+                    if txhash.to_string() == "0x9537790ec5708ab44b55abb9d9939e80dfd947e4a396087addd8ff5c1f574226" {
+                        info!("?");
+                        // let addr_check = Address::from_hex("0x7f7eb34b433e0bea8420a376cee05554ed49b49f");
+                    }
+                    
+                    account.commit_storage_with_tx_address(&self.factories.trie, account_db.as_hash_db_mut(), address, txhash)?;
+                    account.commit_code(account_db.as_hash_db_mut());
+                }
+            }
+        }
+
+        {
+            let mut trie = self
+                .factories
+                .trie
+                .from_existing(self.db.as_hash_db_mut(), &mut self.root)?;
+            for (address, ref mut a) in accounts.iter_mut().filter(|&(_, ref a)| a.is_dirty()) {
+                a.state = AccountState::Committed;
+                match a.account {
+                    Some(ref mut account) => {
+                        info!("state tx={:?} addr={:?} balance={:?} nonce={:?}", txhash,  address, &account.balance(), &account.nonce());
+                        trie.insert(address.as_bytes(), &account.rlp())?;
+                    }
+                    None => {
+                        trie.remove(address.as_bytes())?;
+                    }
+                };
+            }
+        }
+
+        Ok(())
+    }
+
 
     // t_nb 9.4 Propagate local cache into shared canonical state cache.
     fn propagate_to_global_cache(&mut self) {
@@ -1271,7 +1326,15 @@ impl<B: Backend> State<B> {
     pub fn diff_from<X: Backend>(&self, mut orig: State<X>) -> TrieResult<StateDiff> {
         let pod_state_post = self.to_pod_cache();
         let pod_state_pre = orig.to_pod_diff(self)?;
-        Ok(pod_state::diff_pod(&pod_state_pre, &pod_state_post))
+        let state_diff = pod_state::diff_pod(&pod_state_pre, &pod_state_post);
+/*
+        let x_state_diff = XStateDiff::from(state_diff.clone());
+        let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
+        info!("state_diff={:?}", &state_diff);
+        info!("x_state_diff={:?}", x_state_diff);
+        info!("x_state_diff_json={:?}", x_state_diff_json);
+*/
+        Ok(state_diff)
     }
 
     /// Load required account data from the databases. Returns whether the cache succeeds.

@@ -104,6 +104,8 @@ fn unverified_from_sync(header: SyncHeader, body: Option<SyncBody>) -> Unverifie
         transactions: body.transactions,
         uncles: body.uncles,
         bytes: stream.out().to_vec(),
+        // XBlock Shanghai
+        withdrawals: None,
     }
 }
 

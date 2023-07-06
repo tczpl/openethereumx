@@ -344,6 +344,7 @@ impl<Cost: CostType> Interpreter<Cost> {
                 .expect("Gasometer None case is checked above; qed")
                 .current_gas
                 .as_u256();
+            log::info!("step current_gas={:?}", &current_gas);
             InterpreterResult::Done(Ok(GasLeft::Known(current_gas)))
         } else {
             self.step_inner(ext)
@@ -591,6 +592,7 @@ impl<Cost: CostType> Interpreter<Cost> {
             || (instruction == CHAINID && !schedule.have_chain_id)
             || (instruction == SELFBALANCE && !schedule.have_selfbalance)
             || (instruction == BASEFEE && !schedule.eip3198)
+            || (instruction == PUSH0 && ext.env_info().number < 17034871)
             || ((instruction == BEGINSUB || instruction == JUMPSUB || instruction == RETURNSUB)
                 && !schedule.have_subs)
         {
@@ -650,6 +652,8 @@ impl<Cost: CostType> Interpreter<Cost> {
         instruction: Instruction,
         provided: Option<Cost>,
     ) -> vm::Result<InstructionResult<Cost>> {
+        // log::info!("exec_instruction gas={:?} instruction={:?}", gas, instruction);
+        
         match instruction {
             instructions::JUMP => {
                 let jump = self.stack.pop_back();
@@ -982,6 +986,9 @@ impl<Cost: CostType> Interpreter<Cost> {
                     .expect("push_bytes always return some for PUSH* instructions");
                 let val = self.reader.read(bytes);
                 self.stack.push(val);
+            }
+            instructions::PUSH0 => {
+                self.stack.push(U256::from(0));
             }
             instructions::MLOAD => {
                 let word = self.mem.read(self.stack.pop_back());

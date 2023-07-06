@@ -40,6 +40,7 @@ use engines::EthEngine;
 use error::{BlockError, Error};
 use factory::Factories;
 use state::State;
+use state::CleanupMode;
 use state_db::StateDB;
 use trace::Tracing;
 use triehash::ordered_trie_root;
@@ -53,7 +54,102 @@ use types::{
     header::{ExtendedHeader, Header},
     receipt::{TransactionOutcome, TypedReceipt},
     transaction::{Error as TransactionError, SignedTransaction},
+    withdrawal::Withdrawal,
 };
+
+
+use serde_json;
+
+use std::collections::BTreeMap;
+use ethereum_types::{H160};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
+use types::{account_diff, state_diff};
+
+
+#[derive(Debug, Serialize)]
+/// Aux type for Diff::Changed.
+pub struct XChangedType<T>
+where
+    T: Serialize,
+{
+    from: T,
+    to: T,
+}
+
+#[derive(Debug, Serialize)]
+/// Serde-friendly `Diff` shadow.
+pub enum XDiff<T>
+where
+    T: Serialize,
+{
+    #[serde(rename = "=")]
+    Same,
+    #[serde(rename = "+")]
+    Born(T),
+    #[serde(rename = "-")]
+    Died(T),
+    #[serde(rename = "*")]
+    Changed(XChangedType<T>),
+}
+
+impl<T, U> From<account_diff::Diff<T>> for XDiff<U>
+where
+    T: Eq,
+    U: Serialize + From<T>,
+{
+    fn from(c: account_diff::Diff<T>) -> Self {
+        match c {
+            account_diff::Diff::Same => XDiff::Same,
+            account_diff::Diff::Born(t) => XDiff::Born(t.into()),
+            account_diff::Diff::Died(t) => XDiff::Died(t.into()),
+            account_diff::Diff::Changed(t, u) => XDiff::Changed(XChangedType {
+                from: t.into(),
+                to: u.into(),
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+/// Serde-friendly `AccountDiff` shadow.
+pub struct XAccountDiff {
+    pub balance: XDiff<U256>,
+    pub nonce: XDiff<U256>,
+    pub code: XDiff<Bytes>,
+    pub storage: BTreeMap<H256, XDiff<H256>>,
+}
+
+impl From<account_diff::AccountDiff> for XAccountDiff {
+    fn from(c: account_diff::AccountDiff) -> Self {
+        XAccountDiff {
+            balance: c.balance.into(),
+            nonce: c.nonce.into(),
+            code: c.code.into(),
+            storage: c.storage.into_iter().map(|(k, v)| (k, v.into())).collect(),
+        }
+    }
+}
+
+#[derive(Debug)]
+/// Serde-friendly `StateDiff` shadow.
+pub struct XStateDiff(BTreeMap<H160, XAccountDiff>);
+
+impl Serialize for XStateDiff {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Serialize::serialize(&self.0, serializer)
+    }
+}
+
+impl From<state_diff::StateDiff> for XStateDiff {
+    fn from(c: state_diff::StateDiff) -> Self {
+        XStateDiff(c.raw.into_iter().map(|(k, v)| (k, v.into())).collect())
+    }
+}
+
+
 
 /// Block that is ready for transactions to be added.
 ///
@@ -269,6 +365,9 @@ impl<'x> OpenBlock<'x> {
         }
 
         let env_info = self.block.env_info();
+
+        let original_state = self.block.state.clone();
+
         let outcome = self.block.state.apply(
             &env_info,
             self.engine.machine(),
@@ -276,6 +375,14 @@ impl<'x> OpenBlock<'x> {
             self.block.traces.is_enabled(),
         )?;
 
+        let state_diff =  self.state.diff_from(original_state).unwrap();
+        // info!("original state_diff={:?}", &state_diff);
+
+
+        let x_state_diff = XStateDiff::from(state_diff);
+        let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
+        info!("push_transaction tx={:?} state_root={:?} x_state_diff_json={:?}", t.hash(), self.block.state.root().clone(), x_state_diff_json);
+        
         self.block
             .transactions_set
             .insert(h.unwrap_or_else(|| t.hash()));
@@ -294,6 +401,7 @@ impl<'x> OpenBlock<'x> {
     /// Push transactions onto the block.
     #[cfg(not(feature = "slow-blocks"))]
     fn push_transactions(&mut self, transactions: Vec<SignedTransaction>) -> Result<(), Error> {
+        info!("push_transactions not slow-blocks");
         for t in transactions {
             self.push_transaction(t, None)?;
         }
@@ -303,6 +411,7 @@ impl<'x> OpenBlock<'x> {
     /// Push transactions onto the block.
     #[cfg(feature = "slow-blocks")]
     fn push_transactions(&mut self, transactions: Vec<SignedTransaction>) -> Result<(), Error> {
+        info!("push_transactions slow-blocks");
         use std::time;
 
         let slow_tx = option_env!("SLOW_TX_DURATION")
@@ -540,6 +649,7 @@ pub(crate) fn enact(
     factories: Factories,
     is_epoch_begin: bool,
     ancestry: &mut dyn Iterator<Item = ExtendedHeader>,
+    withdrawals: Option<Vec<Withdrawal>>,
 ) -> Result<LockedBlock, Error> {
     // For trace log
     let trace_state = if log_enabled!(target: "enact", ::log::Level::Trace) {
@@ -582,6 +692,16 @@ pub(crate) fn enact(
     // t_nb 8.3 execute transactions one by one
     b.push_transactions(transactions)?;
 
+    // XBlock Shanghai
+    if header.number() >= 17034870 {
+        let withdrawals_vec = withdrawals.unwrap();
+        for withdrawal in withdrawals_vec {
+            info!("adding #{} {} {} Gwei", header.number(), withdrawal.address, withdrawal.amount);
+            let amount = U256::from(1_000_000_000) * withdrawal.amount;
+            b.block.state_mut().add_balance(&withdrawal.address, &amount, CleanupMode::NoEmpty)?;
+        }
+    }
+
     // t_nb 8.4 Push uncles to OpenBlock and check if we have more then max uncles
     for u in uncles {
         b.push_uncle(u)?;
@@ -615,6 +735,7 @@ pub fn enact_verified(
         factories,
         is_epoch_begin,
         ancestry,
+        block.withdrawals,
     )
 }
 

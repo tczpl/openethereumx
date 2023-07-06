@@ -92,6 +92,9 @@ pub struct Header {
 
     /// Memoized hash of that header and the seal.
     hash: Option<H256>,
+    
+    /// XBlock Shanghai
+    withdrawals_hash: Option<H256>,
 }
 
 impl PartialEq for Header {
@@ -142,6 +145,8 @@ impl Default for Header {
             seal: vec![],
             hash: None,
             base_fee_per_gas: None,
+
+            withdrawals_hash: None,
         }
     }
 }
@@ -326,6 +331,10 @@ impl Header {
         change_field(&mut self.hash, &mut self.base_fee_per_gas, a);
     }
 
+    pub fn set_withdrawl_hash(&mut self, a: Option<H256>) {
+        change_field(&mut self.hash, &mut self.withdrawals_hash, a);
+    }
+
     /// Get the hash of this header (keccak of the RLP with seal).
     pub fn hash(&self) -> H256 {
         self.hash.unwrap_or_else(|| keccak(self.rlp(Seal::With)))
@@ -385,6 +394,11 @@ impl Header {
         if self.base_fee_per_gas.is_some() {
             s.append(&self.base_fee_per_gas.unwrap());
         }
+
+        // XBlock Shanghai
+        if self.withdrawals_hash.is_some() {
+            s.append(&self.withdrawals_hash.unwrap());
+        }
     }
 }
 
@@ -418,9 +432,22 @@ impl Header {
             seal: vec![],
             hash: keccak(r.as_raw()).into(),
             base_fee_per_gas: None,
+            withdrawals_hash: None,
         };
 
-        if blockheader.number >= eip1559_transition {
+        if blockheader.number >= 17034870 { //&&  r.item_count().unwrap()== 17{
+            info!("blockheader.number={} r.item_count()={}", blockheader.number(), r.item_count().unwrap());
+            for i in 0..r.item_count()?  {
+                info!("r.item {} {}", i, r.at(i).unwrap());
+            }
+            for i in 13..r.item_count()? - 2 {
+                blockheader.seal.push(r.at(i)?.as_raw().to_vec())
+            }
+            blockheader.base_fee_per_gas = Some(r.val_at(r.item_count()? - 2)?);
+            let the_hash = r.val_at(r.item_count()? - 1)?;
+            blockheader.withdrawals_hash = Some(the_hash);
+        }
+        else if blockheader.number >= eip1559_transition {
             for i in 13..r.item_count()? - 1 {
                 blockheader.seal.push(r.at(i)?.as_raw().to_vec())
             }

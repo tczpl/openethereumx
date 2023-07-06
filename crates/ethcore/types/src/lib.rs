@@ -50,6 +50,10 @@ pub mod views;
 pub mod account_diff;
 pub mod ancestry_action;
 pub mod basic_account;
+
+#[macro_use]
+extern crate log;
+
 pub mod block;
 pub mod block_status;
 pub mod blockchain_info;
@@ -72,6 +76,8 @@ pub mod trace_filter;
 pub mod transaction;
 pub mod tree_route;
 pub mod verification_queue_info;
+// XBlock Shanghai
+pub mod withdrawal;
 
 /// Type for block number.
 pub type BlockNumber = u64;

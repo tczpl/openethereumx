@@ -65,6 +65,8 @@ extern crate using_queue;
 extern crate vm;
 extern crate wasm;
 
+extern crate serde_json;
+
 #[cfg(any(test, feature = "blooms-db"))]
 extern crate blooms_db;
 #[cfg(any(test, feature = "env_logger"))]

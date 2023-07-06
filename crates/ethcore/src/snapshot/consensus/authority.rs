@@ -352,13 +352,15 @@ impl Rebuilder for ChunkRebuilder {
             use types::block::Block;
 
             let last_rlp = rlp.at(num_items - 1)?;
-            let block = Block {
+            let mut block = Block {
                 header: Header::decode_rlp(&last_rlp.at(0)?, engine.params().eip1559_transition)?,
                 transactions: TypedTransaction::decode_rlp_list(&last_rlp.at(1)?)?,
                 uncles: Header::decode_rlp_list(
                     &last_rlp.at(2)?,
                     engine.params().eip1559_transition,
                 )?,
+                // TODO: XBlock, not right
+                withdrawals: None, 
             };
             let block_data = block.rlp_bytes();
             let receipts = TypedReceipt::decode_rlp_list(&last_rlp.at(3)?)?;

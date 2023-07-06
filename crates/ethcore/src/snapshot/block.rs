@@ -23,6 +23,7 @@ use rlp::{DecoderError, Rlp, RlpStream};
 use triehash::ordered_trie_root;
 use types::{
     block::Block, header::Header, transaction::TypedTransaction, views::BlockView, BlockNumber,
+    withdrawal::Withdrawal
 };
 
 const HEADER_FIELDS: usize = 8;
@@ -45,6 +46,7 @@ impl AbridgedBlock {
 
     /// Given a full block view, trim out the parent hash and block number,
     /// producing new rlp.
+    /// TODO: XBlock Shanghai
     pub fn from_block_view(block_view: &BlockView, eip1559_transition: BlockNumber) -> Self {
         let header = block_view.header_view();
         let eip1559 = header.number() >= eip1559_transition;
@@ -140,7 +142,14 @@ impl AbridgedBlock {
         }
         header.set_seal(seal_fields);
 
-        if number >= eip1559_transition {
+        let mut withdrawals: Option<Vec<Withdrawal>> = None;
+
+        if number >= 17034870 {
+            header.set_base_fee(Some(rlp.val_at::<U256>(rlp.item_count()? - 2)?));
+            header.set_withdrawl_hash(Some(rlp.val_at::<H256>(rlp.item_count()? - 1)?));
+            withdrawals = Some(Withdrawal::decode_rlp_list(&rlp.at(10)?)?);
+        }
+        else if number >= eip1559_transition {
             header.set_base_fee(Some(rlp.val_at::<U256>(rlp.item_count()? - 1)?));
         }
 
@@ -148,6 +157,7 @@ impl AbridgedBlock {
             header: header,
             transactions: transactions,
             uncles: uncles,
+            withdrawals: withdrawals,
         })
     }
 }

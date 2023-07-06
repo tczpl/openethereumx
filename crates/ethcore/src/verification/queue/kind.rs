@@ -83,6 +83,7 @@ pub mod blocks {
     use types::{
         header::Header,
         transaction::{TypedTransaction, UnverifiedTransaction},
+        withdrawal::Withdrawal,
         BlockNumber,
     };
     use verification::{verify_block_basic, verify_block_unordered, PreverifiedBlock};
@@ -135,6 +136,7 @@ pub mod blocks {
         }
     }
 
+    /// XBlock Shanghai
     /// An unverified block.
     #[derive(PartialEq, Debug, MallocSizeOf)]
     pub struct Unverified {
@@ -144,10 +146,13 @@ pub mod blocks {
         pub transactions: Vec<UnverifiedTransaction>,
         /// Unverified block uncles.
         pub uncles: Vec<Header>,
+        ///
+        pub withdrawals: Option<Vec<Withdrawal>>,
         /// Raw block bytes.
         pub bytes: Bytes,
     }
 
+    // TODO: XBlock here
     impl Unverified {
         /// Create an `Unverified` from raw bytes.
         pub fn from_rlp(
@@ -155,6 +160,7 @@ pub mod blocks {
             eip1559_transition: BlockNumber,
         ) -> Result<Self, ::rlp::DecoderError> {
             use rlp::Rlp;
+
             let (header, transactions, uncles) = {
                 let rlp = Rlp::new(&bytes);
                 let header = Header::decode_rlp(&rlp.at(0)?, eip1559_transition)?;
@@ -162,11 +168,18 @@ pub mod blocks {
                 let uncles = Header::decode_rlp_list(&rlp.at(2)?, eip1559_transition)?;
                 (header, transactions, uncles)
             };
+            
+            let rlp = Rlp::new(&bytes);
+            let mut withdrawals  = None;
+            if header.number() >= 17034870 {
+                withdrawals = Some(Withdrawal::decode_rlp_list(&rlp.at(3)?)?);
+            }
 
             Ok(Unverified {
                 header,
                 transactions,
                 uncles,
+                withdrawals,
                 bytes,
             })
         }

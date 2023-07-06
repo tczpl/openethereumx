@@ -548,6 +548,33 @@ impl Account {
         Ok(())
     }
 
+
+    /// Commit the `storage_changes` to the backing DB and update `storage_root`.
+    pub fn commit_storage_with_tx_address(
+        &mut self,
+        trie_factory: &TrieFactory,
+        db: &mut dyn HashDB<KeccakHasher, DBValue>,
+        address: &Address,
+        txhash: &H256
+
+    ) -> TrieResult<()> {
+        let mut t = trie_factory.from_existing(db, &mut self.storage_root)?;
+        for (k, v) in self.storage_changes.drain() {
+            info!("state tx={:?} addr={:?} k={:?}, v={:?}", txhash, address, k.as_bytes().to_hex(), v.as_bytes().to_hex());
+            // cast key and value to trait type,
+            // so we can call overloaded `to_bytes` method
+            match v.is_zero() {
+                true => t.remove(k.as_bytes())?,
+                false => t.insert(k.as_bytes(), &encode(&v.into_uint()))?,
+            };
+
+            self.storage_cache.borrow_mut().insert(k, v);
+        }
+        self.original_storage_cache = None;
+        Ok(())
+    }
+
+
     /// Commit any unsaved code. `code_hash` will always return the hash of the `code_cache` after this.
     pub fn commit_code(&mut self, db: &mut dyn HashDB<KeccakHasher, DBValue>) {
         trace!(

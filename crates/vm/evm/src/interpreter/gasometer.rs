@@ -299,6 +299,7 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
 
                 Request::GasMemProvide(gas, mem, Some(requested))
             }
+            // XBlock Shanghai TODO
             instructions::CREATE => {
                 let start = stack.peek(1);
                 let len = stack.peek(2);
@@ -306,7 +307,17 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 let gas = Gas::from(schedule.create_gas);
                 let mem = mem_needed(start, len)?;
 
-                Request::GasMemProvide(gas, mem, None)
+                if ext.env_info().number >= 17034870 {
+                    let base = Gas::from(schedule.create_gas);
+                    let size_u256 = *len;
+	                let more_gas_u256 = U256::from(2) * ((size_u256 + U256::from(31)) / U256::from(32));
+                    let more_gas = Gas::from_u256(more_gas_u256)?;
+                    let gas = overflowing!(base.overflow_add(more_gas));
+                    println!("CREATE gas={:?}", gas);
+                    Request::GasMemProvide(gas, mem, None)
+                } else {
+                    Request::GasMemProvide(gas, mem, None)
+                }
             }
             instructions::CREATE2 => {
                 let start = stack.peek(1);
@@ -318,7 +329,16 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 let gas = overflowing!(base.overflow_add(word_gas));
                 let mem = mem_needed(start, len)?;
 
-                Request::GasMemProvide(gas, mem, None)
+                if ext.env_info().number >= 17034870 {
+                    let base = Gas::from(schedule.create_gas);
+                    let size_u256 = *len;
+	                let more_gas_u256 = U256::from(2+6) * ((size_u256 + U256::from(31)) / U256::from(32));
+                    let more_gas = Gas::from_u256(more_gas_u256)?;
+                    let gas = overflowing!(base.overflow_add(more_gas));
+                    Request::GasMemProvide(gas, mem, None)
+                } else {
+                    Request::GasMemProvide(gas, mem, None)
+                }
             }
             instructions::EXP => {
                 let expon = stack.peek(1);

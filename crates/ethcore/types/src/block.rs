@@ -37,8 +37,10 @@ use crate::{
     header::Header,
     transaction::{TypedTransaction, UnverifiedTransaction},
     BlockNumber,
+    withdrawal::Withdrawal
 };
 use rlp::{DecoderError, Rlp, RlpStream};
+use log::{info};
 
 /// A block, encoded as it is on the block chain.
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -49,6 +51,8 @@ pub struct Block {
     pub transactions: Vec<UnverifiedTransaction>,
     /// The uncles of this block.
     pub uncles: Vec<Header>,
+    /// XBlock Shanghai
+    pub withdrawals: Option<Vec<Withdrawal>>,
 }
 
 impl Block {
@@ -68,10 +72,20 @@ impl Block {
         if rlp.item_count()? != 3 {
             return Err(DecoderError::RlpIncorrectListLen);
         }
-        Ok(Block {
+        let mut block = Block {
             header: Header::decode_rlp(&rlp.at(0)?, eip1559_transition)?,
             transactions: TypedTransaction::decode_rlp_list(&rlp.at(1)?)?,
             uncles: Header::decode_rlp_list(&rlp.at(2)?, eip1559_transition)?,
-        })
+            withdrawals: None,
+        };
+
+        if block.header.number() >= 17034870 {
+            let withdrawals = Withdrawal::decode_rlp_list(&rlp.at(3)?).unwrap();
+            warn!(target: "client", "decoded #{}, {} withdraws", block.header.number(), withdrawals.len());
+            block.withdrawals = Some(withdrawals);
+        }
+
+
+        Ok(block)
     }
 }

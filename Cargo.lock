@@ -463,6 +463,7 @@ dependencies = [
  "hex",
  "inflate",
  "keccak-hash",
+ "log",
  "parity-bytes",
  "parity-crypto",
  "parity-util-mem",
