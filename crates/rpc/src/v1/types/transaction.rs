@@ -85,6 +85,32 @@ pub struct Transaction {
     pub max_priority_fee_per_gas: Option<U256>,
 }
 
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Withdrawal {
+    pub index: u64,
+    pub validator: u64,
+    pub address: H160,
+    pub amount: u64,
+}
+
+impl Withdrawal {
+    pub fn from_list(values: Vec<types::withdrawal::Withdrawal>) -> Vec<Withdrawal> {
+        let mut withdrawals = Vec::<Withdrawal>::new();
+        for value in values {
+            let withdrawal = Withdrawal {
+                index: value.index,
+                validator: value.validator,
+                address: value.address,
+                amount: value.amount,
+            };
+            withdrawals.push(withdrawal);
+        }
+        withdrawals
+    }
+}
+
 /// Local Transaction Status
 #[derive(Debug)]
 pub enum LocalTransactionStatus {

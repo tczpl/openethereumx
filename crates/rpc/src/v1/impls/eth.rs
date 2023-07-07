@@ -60,6 +60,7 @@ use v1::{
         block_number_to_id, Block, BlockNumber, BlockTransactions, Bytes, CallRequest, EthAccount,
         EthFeeHistory, Filter, Index, Log, Receipt, RichBlock, StorageProof, SyncInfo, SyncStatus,
         Transaction, Work,
+        Withdrawal,
     },
 };
 
@@ -254,6 +255,8 @@ where
 
             BlockNumberOrId::Id(id) => client_query(id),
         };
+        
+        info!("query result");
 
         match (block, difficulty) {
             (Some(block), Some(total_difficulty)) => {
@@ -264,6 +267,7 @@ where
                 } else {
                     None
                 };
+                let is_shanghai = !is_pending && view.number() >= 17034870;
                 Ok(Some(RichBlock {
                     inner: Block {
                         hash: match is_pending {
@@ -310,6 +314,16 @@ where
                             false => BlockTransactions::Hashes(block.transaction_hashes()),
                         },
                         extra_data: Bytes::new(view.extra_data()),
+                        withdrawals_hash: match is_shanghai {
+                            true => Some(view.withdrawals_hash()),
+                            false => None,
+                        },
+                        withdrawals: match is_shanghai {
+                            true => Some(
+                                Withdrawal::from_list(block.view().withdrawals())
+                            ),
+                            false => None,
+                        }
                     },
                     extra_info: extra.expect(EXTRA_INFO_PROOF),
                 }))
@@ -486,6 +500,8 @@ where
                 base_fee_per_gas: uncle.base_fee(),
                 uncles: vec![],
                 transactions: BlockTransactions::Hashes(vec![]),
+                withdrawals_hash: None,
+                withdrawals: None,
             },
             extra_info: extra,
         };

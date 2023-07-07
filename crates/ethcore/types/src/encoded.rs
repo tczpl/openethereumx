@@ -152,6 +152,10 @@ impl Header {
     pub fn base_fee(&self) -> U256 {
         self.view().base_fee()
     }
+
+    pub fn withdrawals_hash(&self) -> H256 {
+        self.view().withdrawals_hash()
+    }
 }
 
 /// Owning block body view.
@@ -259,11 +263,22 @@ impl Block {
 
     /// Create a new owning block view by concatenating the encoded header and body
     pub fn new_from_header_and_body(header: &views::HeaderView, body: &views::BodyView) -> Self {
-        let mut stream = RlpStream::new_list(3);
-        stream.append_raw(header.rlp().as_raw(), 1);
-        stream.append_raw(body.transactions_rlp().as_raw(), 1);
-        stream.append_raw(body.uncles_rlp().as_raw(), 1);
-        Block::new(stream.out())
+        // log::info!("new_from_header_and_body!!");
+        if header.number() >= 17034870 {
+            let mut stream = RlpStream::new_list(4);
+            stream.append_raw(header.rlp().as_raw(), 1);
+            stream.append_raw(body.transactions_rlp().as_raw(), 1);
+            stream.append_raw(body.uncles_rlp().as_raw(), 1);
+            stream.append_raw(body.withdrawls_rlp().as_raw(), 1);
+            Block::new(stream.out())
+        }
+        else {
+            let mut stream = RlpStream::new_list(3);
+            stream.append_raw(header.rlp().as_raw(), 1);
+            stream.append_raw(body.transactions_rlp().as_raw(), 1);
+            stream.append_raw(body.uncles_rlp().as_raw(), 1);
+            Block::new(stream.out())
+        }
     }
 
     /// Get a borrowed view of the whole block.

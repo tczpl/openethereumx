@@ -204,6 +204,8 @@ pub struct ExecutedBlock {
     pub traces: Tracing,
     /// Hashes of last 256 blocks.
     pub last_hashes: Arc<LastHashes>,
+
+    pub withdrawals: Vec<Withdrawal>,
 }
 
 impl ExecutedBlock {
@@ -222,6 +224,7 @@ impl ExecutedBlock {
                 Tracing::Disabled
             },
             last_hashes: last_hashes,
+            withdrawals: Vec::<Withdrawal>::new(),
         }
     }
 
@@ -366,7 +369,7 @@ impl<'x> OpenBlock<'x> {
 
         let env_info = self.block.env_info();
 
-        let original_state = self.block.state.clone();
+        // let original_state = self.block.state.clone();
 
         let outcome = self.block.state.apply(
             &env_info,
@@ -375,13 +378,13 @@ impl<'x> OpenBlock<'x> {
             self.block.traces.is_enabled(),
         )?;
 
-        let state_diff =  self.state.diff_from(original_state).unwrap();
+        // let state_diff =  self.state.diff_from(original_state).unwrap();
         // info!("original state_diff={:?}", &state_diff);
 
 
-        let x_state_diff = XStateDiff::from(state_diff);
-        let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
-        info!("push_transaction tx={:?} state_root={:?} x_state_diff_json={:?}", t.hash(), self.block.state.root().clone(), x_state_diff_json);
+        // let x_state_diff = XStateDiff::from(state_diff);
+        // let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
+        // info!("push_transaction tx={:?} state_root={:?} x_state_diff_json={:?}", t.hash(), self.block.state.root().clone(), x_state_diff_json);
         
         self.block
             .transactions_set
@@ -401,7 +404,7 @@ impl<'x> OpenBlock<'x> {
     /// Push transactions onto the block.
     #[cfg(not(feature = "slow-blocks"))]
     fn push_transactions(&mut self, transactions: Vec<SignedTransaction>) -> Result<(), Error> {
-        info!("push_transactions not slow-blocks");
+        // info!("push_transactions not slow-blocks");
         for t in transactions {
             self.push_transaction(t, None)?;
         }
@@ -622,6 +625,7 @@ impl Drain for LockedBlock {
 impl SealedBlock {
     /// Get the RLP-encoding of the block.
     pub fn rlp_bytes(&self) -> Bytes {
+        // info!("SealedBlock rlp_bytes!!");
         let mut block_rlp = RlpStream::new_list(3);
         block_rlp.append(&self.block.header);
         SignedTransaction::rlp_append_list(&mut block_rlp, &self.block.transactions);
@@ -692,13 +696,14 @@ pub(crate) fn enact(
     // t_nb 8.3 execute transactions one by one
     b.push_transactions(transactions)?;
 
-    // XBlock Shanghai
+    // XBlock Shanghai withdrawls
     if header.number() >= 17034870 {
         let withdrawals_vec = withdrawals.unwrap();
         for withdrawal in withdrawals_vec {
-            info!("adding #{} {} {} Gwei", header.number(), withdrawal.address, withdrawal.amount);
+            // info!("adding #{} {} {} Gwei", header.number(), withdrawal.address, withdrawal.amount);
             let amount = U256::from(1_000_000_000) * withdrawal.amount;
             b.block.state_mut().add_balance(&withdrawal.address, &amount, CleanupMode::NoEmpty)?;
+            b.block.withdrawals.push(withdrawal);
         }
     }
 

@@ -19,7 +19,7 @@ use std::{collections::BTreeMap, ops::Deref};
 use ethereum_types::{Bloom as H2048, H160, H256, U256};
 use serde::{ser::Error, Serialize, Serializer};
 use types::{encoded::Header as EthHeader, BlockNumber};
-use v1::types::{Bytes, Transaction};
+use v1::types::{Bytes, Transaction, Withdrawal};
 
 /// Block Transactions
 #[derive(Debug)]
@@ -90,6 +90,10 @@ pub struct Block {
     pub transactions: BlockTransactions,
     /// Size in bytes
     pub size: Option<U256>,
+
+    pub withdrawals_hash: Option<H256>,
+
+    pub withdrawals: Option<Vec<Withdrawal>>,
 }
 
 /// Block header representation.
@@ -134,6 +138,8 @@ pub struct Header {
     pub base_fee_per_gas: Option<U256>,
     /// Size in bytes
     pub size: Option<U256>,
+
+    pub withdrawals_hash: Option<H256>,
 }
 
 impl Header {
@@ -166,6 +172,13 @@ impl Header {
 					None
 				}
 			},
+            withdrawals_hash: {
+                if h.number() >= 17034870 {
+                    Some(h.withdrawals_hash())
+                } else {
+                    None
+                }
+            }
 		}
     }
 }

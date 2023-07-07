@@ -23,6 +23,7 @@ use crate::{
     header::Header,
     transaction::{LocalizedTransaction, TypedTransaction, UnverifiedTransaction},
     views::{HeaderView, TypedTransactionView},
+    withdrawal::Withdrawal,
     BlockNumber,
 };
 use ethereum_types::H256;
@@ -145,6 +146,17 @@ impl<'a> BodyView<'a> {
     pub fn uncles_rlp(&self) -> ViewRlp<'a> {
         self.rlp.at(1)
     }
+
+
+    pub fn withdrawls_rlp(&self) -> ViewRlp<'a> {
+        self.rlp.at(2)
+    }
+
+
+    pub fn withdrawls_debug(&self) -> Vec<Withdrawal> {
+        Withdrawal::decode_rlp_list(&self.rlp.at(2).rlp).unwrap()
+    }
+
 
     /// Return list of uncles of given block.
     pub fn uncles(&self, eip1559_transition: BlockNumber) -> Vec<Header> {

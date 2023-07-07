@@ -40,6 +40,7 @@ use common_types::{
     view,
     views::{BlockView, HeaderView},
     BlockNumber,
+    withdrawal::Withdrawal
 };
 use db::{DBTransaction, KeyValueDB};
 use ethcore_db::{
@@ -301,6 +302,7 @@ impl BlockProvider for BlockChain {
 
     /// Get raw block data
     fn block(&self, hash: &H256) -> Option<encoded::Block> {
+        // info!("Get raw block data");
         let header = self.block_header_data(hash)?;
         let body = self.block_body(hash)?;
         Some(encoded::Block::new_from_header_and_body(
@@ -373,7 +375,9 @@ impl BlockProvider for BlockChain {
                 "Low level database error when fetching block body data. Some issue with disk?",
             )?;
 
-        let body = encoded::Body::new(decompress(&b, blocks_swapper()).into_vec());
+        let decompressed = decompress(&b, blocks_swapper()).into_vec();
+        // info!("decompressed len={}", decompressed.len());
+        let body = encoded::Body::new(decompressed);
         let mut write = self.block_bodies.write();
         write.insert(*hash, body.clone());
 
@@ -927,6 +931,7 @@ impl BlockChain {
         is_best: bool,
         is_ancient: bool,
     ) -> bool {
+        // info!("insert_unordered_block");
         let block_number = block.header_view().number();
         let block_parent_hash = block.header_view().parent_hash();
         let block_difficulty = block.header_view().difficulty();
@@ -939,7 +944,15 @@ impl BlockChain {
         assert!(self.pending_best_block.read().is_none());
 
         let compressed_header = compress(block.header_view().rlp().as_raw(), blocks_swapper());
-        let compressed_body = compress(&Self::block_to_body(block.raw()), blocks_swapper());
+
+        let compressed_body;
+        if block.header_view().number() >= 17034870 {
+            let decompressed = &Self::block_to_body_withdrawals(block.raw());
+            compressed_body = compress(decompressed, blocks_swapper());
+            // info!("write compressed_body num={} decom.len={} com.len={}", block.header_view().number(), decompressed.len(), compressed_body.len());
+        } else {
+            compressed_body = compress(&Self::block_to_body(block.raw()), blocks_swapper());
+        }
 
         // store block in db
         batch.put(db::COL_HEADERS, hash.as_bytes(), &compressed_header);
@@ -1314,6 +1327,7 @@ impl BlockChain {
         route: TreeRoute,
         extras: ExtrasInsert,
     ) -> ImportRoute {
+        // info!("insert_block_with_route");
         let hash = block.header_view().hash();
         let parent_hash = block.header_view().parent_hash();
 
@@ -1324,7 +1338,15 @@ impl BlockChain {
         assert!(self.pending_best_block.read().is_none());
 
         let compressed_header = compress(block.header_view().rlp().as_raw(), blocks_swapper());
-        let compressed_body = compress(&Self::block_to_body(block.raw()), blocks_swapper());
+        let compressed_body;
+        if block.header_view().number() >= 17034870 {
+            let decompressed = &Self::block_to_body_withdrawals(block.raw());
+            compressed_body = compress(decompressed, blocks_swapper());
+            // info!("write compressed_body num={} decom.len={} com.len={}", block.header_view().number(), decompressed.len(), compressed_body.len());
+        } else {
+            compressed_body = compress(&Self::block_to_body(block.raw()), blocks_swapper());
+        }
+         
 
         // store block in db
         batch.put(db::COL_HEADERS, hash.as_bytes(), &compressed_header);
@@ -1915,6 +1937,18 @@ impl BlockChain {
         body.append_raw(block_view.uncles_rlp().as_raw(), 1);
         body.out()
     }
+
+
+    /// Create a block body from a block.
+    pub fn block_to_body_withdrawals(block: &[u8]) -> Bytes {
+        let mut body = RlpStream::new_list(3);
+        let block_view = view!(BlockView, block);
+        body.append_raw(block_view.transactions_rlp().as_raw(), 1);
+        body.append_raw(block_view.uncles_rlp().as_raw(), 1);
+        body.append_raw(block_view.withdrawals_rlp().as_raw(), 1);
+        body.out()
+    }
+
 
     /// Returns general blockchain information
     pub fn chain_info(&self) -> BlockChainInfo {

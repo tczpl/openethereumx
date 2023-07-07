@@ -435,11 +435,11 @@ impl Header {
             withdrawals_hash: None,
         };
 
-        if blockheader.number >= 17034870 { //&&  r.item_count().unwrap()== 17{
-            info!("blockheader.number={} r.item_count()={}", blockheader.number(), r.item_count().unwrap());
-            for i in 0..r.item_count()?  {
-                info!("r.item {} {}", i, r.at(i).unwrap());
-            }
+        if blockheader.number >= 17034870 {
+            // info!("blockheader.number={} r.item_count()={}", blockheader.number(), r.item_count().unwrap());
+            // for i in 0..r.item_count()?  {
+            //     info!("r.item {} {}", i, r.at(i).unwrap());
+            // }
             for i in 13..r.item_count()? - 2 {
                 blockheader.seal.push(r.at(i)?.as_raw().to_vec())
             }

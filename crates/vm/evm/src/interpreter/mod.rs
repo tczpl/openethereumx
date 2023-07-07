@@ -344,7 +344,7 @@ impl<Cost: CostType> Interpreter<Cost> {
                 .expect("Gasometer None case is checked above; qed")
                 .current_gas
                 .as_u256();
-            log::info!("step current_gas={:?}", &current_gas);
+            // log::info!("step current_gas={:?}", &current_gas);
             InterpreterResult::Done(Ok(GasLeft::Known(current_gas)))
         } else {
             self.step_inner(ext)

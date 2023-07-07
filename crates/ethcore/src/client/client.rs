@@ -56,6 +56,7 @@ use types::{
         UnverifiedTransaction,
     },
     BlockNumber,
+    withdrawal::Withdrawal,
 };
 use vm::{EnvInfo, LastHashes};
 
@@ -285,7 +286,7 @@ impl Importer {
     // t_nb 6.0 This is triggered by a message coming from a block queue when the block is ready for insertion
     pub fn import_verified_blocks(&self, client: &Client) -> usize {
         // Shortcut out if we know we're incapable of syncing the chain.
-        info!(target: "block_import", "fn import_verified_blocks");
+        trace!(target: "block_import", "fn import_verified_blocks");
         if !client.enabled.load(AtomicOrdering::SeqCst) {
             self.block_queue.reset_verification_ready_signal();
             return 0;

@@ -313,7 +313,7 @@ impl<'a> CallCreateExecutive<'a> {
         stack_depth: usize,
         static_flag: bool,
     ) -> Self {
-        info!(
+        trace!(
             "Executive::create(params={:?}) self.env_info={:?}, static={}",
             params,
             info,
@@ -651,7 +651,7 @@ impl<'a> CallCreateExecutive<'a> {
             }
             CallCreateExecutiveKind::ExecCreate(params, mut unconfirmed_substate) => {
                 assert!(self.is_create);
-                info!("CallCreateExecutiveKind::ExecCreate");
+                // info!("CallCreateExecutiveKind::ExecCreate");
 
                 {
                     let static_flag = self.static_flag;
@@ -1179,7 +1179,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     let data_len = t.as_unsigned().tx().data.len();
                     let more_gas_u256 = U256::from(2) * ((U256::from(data_len) + U256::from(31)) / U256::from(32));
                     base_gas_required += more_gas_u256;
-                    info!("base_gas_required={} more_gas_u256={} data_len={}", base_gas_required, more_gas_u256, data_len);
+                    // info!("base_gas_required={} more_gas_u256={} data_len={}", base_gas_required, more_gas_u256, data_len);
                 }
             }
         }

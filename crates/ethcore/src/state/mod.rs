@@ -956,7 +956,7 @@ impl<B: Backend> State<B> {
         };
 
 
-        info!("tx={:?} cumulative_gas_used={}", t.hash(), &e.cumulative_gas_used);
+        // info!("tx={:?} cumulative_gas_used={}", t.hash(), &e.cumulative_gas_used);
         // self.commit_with_tx(&t.hash())?;
         
         let output = e.output;
@@ -965,7 +965,7 @@ impl<B: Backend> State<B> {
             LegacyReceipt::new(outcome, e.cumulative_gas_used, e.logs),
         );
         trace!(target: "state", "Transaction receipt: {:?}", receipt);
-        info!("Transaction receipt: {:?}", receipt);
+        // info!("Transaction receipt: {:?}", receipt);
 
         Ok(ApplyOutcome {
             receipt,

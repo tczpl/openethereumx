@@ -25,6 +25,7 @@ use crate::{
     header::Header,
     transaction::{LocalizedTransaction, TypedTransaction, UnverifiedTransaction},
     views::{HeaderView, TypedTransactionView},
+    withdrawal::Withdrawal
 };
 
 use ethereum_types::H256;
@@ -95,6 +96,11 @@ impl<'a> BlockView<'a> {
         })
     }
 
+    pub fn withdrawals(&self) -> Vec<Withdrawal> {
+        info!("withdrawals decoding at 3 &self.rlp().item_count()={}", &self.rlp().item_count());
+        Withdrawal::decode_rlp_list(&self.rlp.at(3).rlp).unwrap()
+    }
+
     /// Return List of transactions with additional localization info.
     pub fn localized_transactions(&self) -> Vec<LocalizedTransaction> {
         let header = self.header_view();
@@ -116,6 +122,12 @@ impl<'a> BlockView<'a> {
     /// Return the raw rlp for the transactions in the given block.
     pub fn transactions_rlp(&self) -> ViewRlp<'a> {
         self.rlp.at(1)
+    }
+    
+
+    pub fn withdrawals_rlp(&self) -> ViewRlp<'a> {
+        // self.rlp.at(2)
+        self.rlp.at(3)
     }
 
     /// Return number of transactions in given block, without deserializing them.

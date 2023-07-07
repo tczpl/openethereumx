@@ -58,11 +58,21 @@ pub struct Block {
 impl Block {
     /// Get the RLP-encoding of the block with the seal.
     pub fn rlp_bytes(&self) -> Bytes {
-        let mut block_rlp = RlpStream::new_list(3);
-        block_rlp.append(&self.header);
-        TypedTransaction::rlp_append_list(&mut block_rlp, &self.transactions);
-        block_rlp.append_list(&self.uncles);
-        block_rlp.out()
+        // info!("Block rlp_bytes!!");
+        if self.header.number() >= 17034870 {
+            let mut block_rlp = RlpStream::new_list(4);
+            block_rlp.append(&self.header);
+            TypedTransaction::rlp_append_list(&mut block_rlp, &self.transactions);
+            block_rlp.append_list(&self.uncles);
+            block_rlp.append_list(&self.withdrawals.as_ref().unwrap());
+            block_rlp.out()
+        } else {
+            let mut block_rlp = RlpStream::new_list(3);
+            block_rlp.append(&self.header);
+            TypedTransaction::rlp_append_list(&mut block_rlp, &self.transactions);
+            block_rlp.append_list(&self.uncles);
+            block_rlp.out()
+        }
     }
 
     pub fn decode_rlp(rlp: &Rlp, eip1559_transition: BlockNumber) -> Result<Self, DecoderError> {

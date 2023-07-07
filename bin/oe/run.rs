@@ -606,28 +606,29 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
         }
     };
 
-    let blkid = BlockId::Number(17034869);
-    let callanalytics = CallAnalytics{
-        transaction_tracing: false,
-        vm_tracing: false,
-        state_diffing: true,
-    };
-    info!("replay_start!!!!");
-    let res = client.replay_block_transactions(blkid, callanalytics);
-    info!("replay_finish!!!!");
+    // XBlock Shanghai Debug
+    // let blkid = BlockId::Number(17034869);
+    // let callanalytics = CallAnalytics{
+    //     transaction_tracing: false,
+    //     vm_tracing: false,
+    //     state_diffing: true,
+    // };
+    // info!("replay_start!!!!");
+    // let res = client.replay_block_transactions(blkid, callanalytics);
+    // info!("replay_finish!!!!");
 
-    match res {
-        Ok(iter_box) => {
-            info!("ok");// 假设你有一个名为 `iter_box` 的 `Box<dyn Iterator<Item = (H256, Executed)>>` 实例
+    // match res {
+    //     Ok(iter_box) => {
+    //         info!("ok");// 假设你有一个名为 `iter_box` 的 `Box<dyn Iterator<Item = (H256, Executed)>>` 实例
 
-            let mut iter = iter_box.into_iter();
-            while let Some((h256, executed)) = iter.next() {
-                info!("H256: {:?}, Executed: {:?}", h256, executed);
-            }            
-        },
+    //         let mut iter = iter_box.into_iter();
+    //         while let Some((h256, executed)) = iter.next() {
+    //             info!("H256: {:?}, Executed: {:?}", h256, executed);
+    //         }            
+    //     },
 
-        Err(err) => info!("err {}", err),
-    }
+    //     Err(err) => info!("err {}", err),
+    // }
     Ok(RunningClient {
         inner: RunningClientInner::Full {
             informant,

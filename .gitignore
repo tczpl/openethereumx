@@ -46,5 +46,6 @@ rls/
 # cargo remote artifacts
 remote-target
 buildrun.sh
+debugrun.sh
 
 17034870_*

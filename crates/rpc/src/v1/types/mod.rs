@@ -46,7 +46,7 @@ pub use self::{
     },
     trace::{LocalizedTrace, TraceResults, TraceResultsWithTransactionHash},
     trace_filter::TraceFilter,
-    transaction::{LocalTransactionStatus, RichRawTransaction, Transaction},
+    transaction::{LocalTransactionStatus, RichRawTransaction, Transaction, Withdrawal},
     transaction_access_list::{AccessList, AccessListItem},
     transaction_condition::TransactionCondition,
     transaction_request::TransactionRequest,

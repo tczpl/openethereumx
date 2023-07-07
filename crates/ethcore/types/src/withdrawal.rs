@@ -1,5 +1,5 @@
 use ethereum_types::{Address, Bloom, H256, U256, H64};
-use rlp::{self, DecoderError, Rlp, RlpStream};
+use rlp::{self, DecoderError, Encodable, Rlp, RlpStream};
 use parity_util_mem::MallocSizeOf;
 
 #[derive(Debug, Clone, PartialEq, MallocSizeOf)]
@@ -12,19 +12,14 @@ pub struct Withdrawal {
 
 // XBlock Shanghai
 impl Withdrawal {
-    /// encode raw transaction
+    /// encode raw Withdrawal
     fn encode(&self) -> Vec<u8> {
         let mut stream = RlpStream::new();
         self.encode_rlp(&mut stream);
         stream.drain()
     }
 
-    pub fn rlp_append(
-        &self,
-        rlp: &mut RlpStream,
-    ) {
-        self.encode_rlp(rlp);
-    }
+
 
     fn encode_rlp(
         &self,
@@ -59,5 +54,15 @@ impl Withdrawal {
             output.push(Self::decode_rlp(&tx)?);
         }
         Ok(output)
+    }
+}
+
+
+impl Encodable for Withdrawal {
+    fn rlp_append(
+        &self,
+        rlp: &mut RlpStream,
+    ) {
+        self.encode_rlp(rlp);
     }
 }

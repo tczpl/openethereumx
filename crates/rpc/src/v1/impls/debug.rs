@@ -100,6 +100,8 @@ impl<C: BlockChainClient + 'static> Debug for DebugClient<C> {
                         ),
                         transactions_root: cast(block.header.transactions_root()),
                         extra_data: block.header.extra_data().clone().into(),
+                        withdrawals_hash: None,
+                        withdrawals: None,
                     },
                     extra_info: vec![
                         ("reason".to_owned(), reason),

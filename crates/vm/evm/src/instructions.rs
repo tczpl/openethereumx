@@ -536,7 +536,7 @@ lazy_static! {
         arr[GAS as usize] = Some(InstructionInfo::new("GAS", 0, 1, GasPriceTier::Base));
         arr[JUMPDEST as usize] = Some(InstructionInfo::new("JUMPDEST", 0, 0, GasPriceTier::Special));
         // XBlock Shanghai
-        arr[PUSH1 as usize] = Some(InstructionInfo::new("PUSH0", 0, 1, GasPriceTier::Base));
+        arr[PUSH0 as usize] = Some(InstructionInfo::new("PUSH0", 0, 1, GasPriceTier::Base));
         arr[PUSH1 as usize] = Some(InstructionInfo::new("PUSH1", 0, 1, GasPriceTier::VeryLow));
         arr[PUSH2 as usize] = Some(InstructionInfo::new("PUSH2", 0, 1, GasPriceTier::VeryLow));
         arr[PUSH3 as usize] = Some(InstructionInfo::new("PUSH3", 0, 1, GasPriceTier::VeryLow));
