@@ -23,6 +23,7 @@ use trace::{
     trace::{
         Action, Call, CallResult, Create, CreateResult, MemoryDiff, Res, Reward, RewardType,
         StorageDiff, Suicide, VMExecutedOperation, VMOperation, VMTrace,
+        Withdrawal,
     },
     FlatTrace, Tracer, VMTracer,
 };
@@ -197,6 +198,30 @@ impl Tracer for ExecutiveTracer {
             trace_address: self.index_stack.clone(),
         };
         debug!(target: "trace", "Traced reward {:?}", trace);
+        self.traces.push(trace);
+
+        if let Some(index) = self.index_stack.last_mut() {
+            *index += 1;
+        }
+    }
+
+    fn trace_withdrawal(&mut self, index: u64, validator: u64, address: Address, amount: u64) {
+        if let Some(parentlen) = self.sublen_stack.last_mut() {
+            *parentlen += 1;
+        }
+
+        let trace = FlatTrace {
+            subtraces: 0,
+            action: Action::Withdrawal(Withdrawal {
+                index,
+                validator,
+                address,
+                amount,
+            }),
+            result: Res::None,
+            trace_address: self.index_stack.clone(),
+        };
+        debug!(target: "trace", "Traced withdrawal {:?}", trace);
         self.traces.push(trace);
 
         if let Some(index) = self.index_stack.last_mut() {

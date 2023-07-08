@@ -126,6 +126,9 @@ impl Filter {
             Action::Reward(ref reward) => {
                 self.from_address.matches_all() && self.to_address.matches(&reward.author)
             }
+            Action::Withdrawal(ref withdrawal) => {
+                self.from_address.matches_all() && self.to_address.matches(&withdrawal.address)
+            }
         }
     }
 }

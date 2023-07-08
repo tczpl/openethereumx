@@ -66,6 +66,8 @@ use serde::{ser::SerializeStruct, Serialize, Serializer};
 use types::{account_diff, state_diff};
 
 
+use trace::{ExecutiveTracer, Tracer};
+
 #[derive(Debug, Serialize)]
 /// Aux type for Diff::Changed.
 pub struct XChangedType<T>
@@ -703,6 +705,13 @@ pub(crate) fn enact(
             // info!("adding #{} {} {} Gwei", header.number(), withdrawal.address, withdrawal.amount);
             let amount = U256::from(1_000_000_000) * withdrawal.amount;
             b.block.state_mut().add_balance(&withdrawal.address, &amount, CleanupMode::NoEmpty)?;
+
+            if let Tracing::Enabled(ref mut traces) = *b.block.traces_mut() {
+                let mut tracer = ExecutiveTracer::default();
+                tracer.trace_withdrawal(withdrawal.index, withdrawal.validator, withdrawal.address, withdrawal.amount);
+                traces.push(tracer.drain().into());
+            }
+
             b.block.withdrawals.push(withdrawal);
         }
     }

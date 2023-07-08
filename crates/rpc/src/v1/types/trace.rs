@@ -364,6 +364,28 @@ impl From<trace::Reward> for Reward {
     }
 }
 
+/// Reward action
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Withdrawal {
+    pub index: u64,
+    pub validator: u64,
+    pub address: H160,
+    pub amount: u64,
+}
+
+impl From<trace::Withdrawal> for Withdrawal {
+    fn from(w: trace::Withdrawal) -> Self {
+        Withdrawal {
+            index: w.index,
+            validator: w.validator,
+            address: w.address,
+            amount: w.amount,
+        }
+    }
+}
+
+
 /// Suicide
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -398,7 +420,7 @@ pub enum Action {
     /// Reward
     Reward(Reward),
     // Withdrawal
-    // Withdrawal(Withdrawal),
+    Withdrawal(Withdrawal),
 }
 
 impl From<trace::Action> for Action {
@@ -408,6 +430,7 @@ impl From<trace::Action> for Action {
             trace::Action::Create(create) => Action::Create(create.into()),
             trace::Action::Suicide(suicide) => Action::Suicide(suicide.into()),
             trace::Action::Reward(reward) => Action::Reward(reward.into()),
+            trace::Action::Withdrawal(withdrawal) => Action::Withdrawal(withdrawal.into()),
         }
     }
 }
@@ -524,6 +547,10 @@ impl Serialize for LocalizedTrace {
                 struc.serialize_field("type", "reward")?;
                 struc.serialize_field("action", reward)?;
             }
+            Action::Withdrawal(ref withdrawal) => {
+                struc.serialize_field("type", "withdrawal")?;
+                struc.serialize_field("action", withdrawal)?;
+            }
         }
 
         match self.result {
@@ -595,6 +622,10 @@ impl Serialize for Trace {
             Action::Reward(ref reward) => {
                 struc.serialize_field("type", "reward")?;
                 struc.serialize_field("action", reward)?;
+            }
+            Action::Withdrawal(ref withdrawal) => {
+                struc.serialize_field("type", "withdrawal")?;
+                struc.serialize_field("action", withdrawal)?;
             }
         }
 

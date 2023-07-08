@@ -184,6 +184,24 @@ pub struct Reward {
     pub reward_type: RewardType,
 }
 
+
+/// Withdrawal action
+#[derive(Debug, Clone, PartialEq)]
+pub struct Withdrawal {
+    pub index: u64,
+    pub validator: u64,
+    pub address: Address,
+    pub amount: u64,
+}
+
+
+impl Withdrawal {
+    /// Return reward action bloom.
+    pub fn bloom(&self) -> Bloom {
+        BloomInput::Raw(self.address.as_bytes()).into()
+    }
+}
+
 impl Reward {
     /// Return reward action bloom.
     pub fn bloom(&self) -> Bloom {
@@ -211,6 +229,32 @@ impl Decodable for Reward {
         Ok(res)
     }
 }
+
+
+impl Encodable for Withdrawal {
+    fn rlp_append(&self, s: &mut RlpStream) {
+        s.begin_list(4);
+        s.append(&self.index);
+        s.append(&self.validator);
+        s.append(&self.address);
+        s.append(&self.amount);
+    }
+}
+
+impl Decodable for Withdrawal {
+    fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
+        let res = Withdrawal {
+            index: rlp.val_at(0)?,
+            validator: rlp.val_at(1)?,
+            address: rlp.val_at(2)?,
+            amount: rlp.val_at(3)?,
+        };
+
+        Ok(res)
+    }
+}
+
+
 
 /// Suicide action.
 #[derive(Debug, Clone, PartialEq, RlpEncodable, RlpDecodable)]
@@ -244,6 +288,8 @@ pub enum Action {
     Suicide(Suicide),
     /// Reward
     Reward(Reward),
+    // Withdrawal,
+    Withdrawal(Withdrawal),
 }
 
 impl Encodable for Action {
@@ -266,6 +312,10 @@ impl Encodable for Action {
                 s.append(&3u8);
                 s.append(reward);
             }
+            Action::Withdrawal(ref withdrawal) => {
+                s.append(&4u8);
+                s.append(withdrawal);
+            }
         }
     }
 }
@@ -278,6 +328,7 @@ impl Decodable for Action {
             1 => rlp.val_at(1).map(Action::Create),
             2 => rlp.val_at(1).map(Action::Suicide),
             3 => rlp.val_at(1).map(Action::Reward),
+            4 => rlp.val_at(1).map(Action::Withdrawal),
             _ => Err(DecoderError::Custom("Invalid action type.")),
         }
     }
@@ -291,6 +342,7 @@ impl Action {
             Action::Create(ref create) => create.bloom(),
             Action::Suicide(ref suicide) => suicide.bloom(),
             Action::Reward(ref reward) => reward.bloom(),
+            Action::Withdrawal(ref withdrawal) => withdrawal.bloom(),
         }
     }
 }

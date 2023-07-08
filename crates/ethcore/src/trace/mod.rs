@@ -74,6 +74,8 @@ pub trait Tracer: Send {
     /// Stores reward info.
     fn trace_reward(&mut self, author: Address, value: U256, reward_type: RewardType);
 
+    fn trace_withdrawal(&mut self, index: u64, validator: u64, address: Address, amount: u64);
+
     /// Consumes self and returns all traces.
     fn drain(self) -> Vec<Self::Output>;
 }
