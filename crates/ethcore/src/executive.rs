@@ -1434,17 +1434,32 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
         let gas = params.gas;
 
         let vm_factory = self.state.vm_factory();
-        let result = CallCreateExecutive::new_create_raw(
-            params,
-            self.info,
-            self.machine,
-            self.schedule,
-            &vm_factory,
-            self.depth,
-            stack_depth,
-            self.static_flag,
-        )
-        .consume(self.state, substate, tracer, vm_tracer);
+
+        // XBlock Shanghai
+        let mut data_len = 0;
+        match &params.data {
+            Some(data) => {
+                data_len = data.len();
+            },
+            None => {},
+        };
+
+        let result;
+        if stack_depth==0 && self.info.number > 17034870 && data_len> 49152 {
+            result = Err(vm::Error::OutOfGas);
+        } else {
+            result = CallCreateExecutive::new_create_raw(
+                params,
+                self.info,
+                self.machine,
+                self.schedule,
+                &vm_factory,
+                self.depth,
+                stack_depth,
+                self.static_flag,
+            )
+            .consume(self.state, substate, tracer, vm_tracer);    
+        }
 
         match result {
             Ok(ref val) if val.apply_state => {

@@ -426,13 +426,13 @@ where
                 let return_cost =
                     U256::from(data.len()) * U256::from(self.schedule.create_data_gas);
                 // XBlock Shanghai
-                let mut real_create_data_limit = self.schedule.create_data_limit;
-                if self.env_info().number >= 17034870{
-                    real_create_data_limit = 49152;
-                }
+                // let mut real_create_data_limit = self.schedule.create_data_limit;
+                // if self.env_info().number >= 17034870{
+                //     real_create_data_limit = 49152;
+                // }
                 // XBlock tx_create_gas create_data_gas create_gas
                 // info!("TODO!!!! return_cost={} gas={} data.len()={} real_create_data_limit={}", return_cost, *gas, data.len(), real_create_data_limit);
-                if return_cost > *gas || data.len() > real_create_data_limit {
+                if return_cost > *gas || data.len() > self.schedule.create_data_limit {
                     return match self.schedule.exceptional_failed_code_deposit {
                         true => Err(vm::Error::OutOfGas),
                         false => Ok(*gas),
