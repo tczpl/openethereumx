@@ -276,7 +276,7 @@ impl Rebuilder for PowRebuilder {
         let item_count = rlp.item_count()?;
         let num_blocks = (item_count - 3) as u64;
 
-        trace!(target: "snapshot", "restoring block chunk with {} blocks.", num_blocks);
+        info!(target: "snapshot", "restoring block chunk with {} blocks.", num_blocks);
 
         if self.fed_blocks + num_blocks > self.snapshot_blocks {
             return Err(
@@ -287,9 +287,18 @@ impl Rebuilder for PowRebuilder {
         // todo: assert here that these values are consistent with chunks being in order.
         let mut cur_number = rlp.val_at::<u64>(0)? + 1;
         let mut parent_hash = rlp.val_at::<H256>(1)?;
+        //TODO wocao
+        info!("cur_number={}, parent_hash={}", cur_number, parent_hash);
+        info!("self.best_number={} self.best_hash={}",self.best_number, self.best_hash);
         let parent_total_difficulty = rlp.val_at::<U256>(2)?;
 
         for idx in 3..item_count {
+            // if cur_number != 18499937 {
+            //     cur_number += 1;
+            //     continue;
+            // }
+            
+            info!("cur_number={}, parent_hash={}", cur_number, parent_hash);
             if !abort_flag.load(Ordering::SeqCst) {
                 return Err(Error::RestorationAborted.into());
             }
@@ -317,6 +326,8 @@ impl Rebuilder for PowRebuilder {
             let is_best = cur_number == self.best_number;
 
             if is_best {
+                info!("header {:?}", block.header);
+                info!("block.header.hash() {}", block.header.hash());
                 if block.header.hash() != self.best_hash {
                     return Err(Error::WrongBlockHash(
                         cur_number,

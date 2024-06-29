@@ -654,6 +654,14 @@ pub trait BlockChainReset {
     fn reset(&self, num: u32) -> Result<(), String>;
 }
 
+
+/// prune the blockchain history
+pub trait BlockChainPrune {
+    fn prune(&self, num: u32) -> Result<(), String>;
+}
+
+
+
 /// Provides a method for importing/exporting blocks
 pub trait ImportExportBlocks {
     /// Export blocks to destination, with the given from, to and format argument.

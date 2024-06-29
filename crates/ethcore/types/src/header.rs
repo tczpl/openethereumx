@@ -335,9 +335,28 @@ impl Header {
         change_field(&mut self.hash, &mut self.withdrawals_hash, a);
     }
 
+    /// Get the withdrawl_hash field of the header.
+    pub fn withdrawl_hash(&self) -> H256 {
+        self.withdrawals_hash.unwrap()
+    }
+
+
+
     /// Get the hash of this header (keccak of the RLP with seal).
     pub fn hash(&self) -> H256 {
+        if self.number == 18499937 || self.number == 17500000 {
+            // self.info();
+            // panic!();
+        }
         self.hash.unwrap_or_else(|| keccak(self.rlp(Seal::With)))
+    }
+
+
+    /// Get the hash of this header (keccak of the RLP with seal).
+    pub fn info(&self) {
+        info!("header {:?}", self);
+        info!("header rlphex {:}", hex::encode(self.rlp(Seal::With)));
+        info!("header rlphex sha {:}", keccak(self.rlp(Seal::With)) );
     }
 
     /// Get the hash of the header excluding the seal
@@ -359,11 +378,16 @@ impl Header {
 
     /// Place this header into an RLP stream `s`, optionally `with_seal`.
     fn stream_rlp(&self, s: &mut RlpStream, with_seal: Seal) {
-        let stream_length_without_seal = if self.base_fee_per_gas.is_some() {
+        let mut stream_length_without_seal = if self.base_fee_per_gas.is_some() {
             14
         } else {
             13
         };
+
+        // XBlock Shanghai
+        if self.withdrawals_hash.is_some() {
+            stream_length_without_seal += 1
+        }
 
         if let Seal::With = with_seal {
             s.begin_list(stream_length_without_seal + self.seal.len());
@@ -397,6 +421,7 @@ impl Header {
 
         // XBlock Shanghai
         if self.withdrawals_hash.is_some() {
+            // info!("stream_rlp parent_hash={} withdrawals_hash={}", self.parent_hash, &self.withdrawals_hash.unwrap());
             s.append(&self.withdrawals_hash.unwrap());
         }
     }
@@ -434,6 +459,9 @@ impl Header {
             base_fee_per_gas: None,
             withdrawals_hash: None,
         };
+        if blockheader.number == 18499937 || blockheader.number == 17500000   {
+            info!("{} decode_rlp {:?}",  blockheader.number,hex::encode(r.as_raw()));
+        }
 
         if blockheader.number >= 17034870 {
             // info!("blockheader.number={} r.item_count()={}", blockheader.number(), r.item_count().unwrap());

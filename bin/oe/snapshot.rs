@@ -78,6 +78,7 @@ fn restore_using<R: SnapshotReader>(
     reader: &R,
     recover: bool,
 ) -> Result<(), String> {
+    // wocaole 
     let manifest = reader.manifest();
 
     info!(
@@ -130,6 +131,7 @@ fn restore_using<R: SnapshotReader>(
 
         snapshot.feed_state_chunk(state_hash, &chunk);
     }
+    info!("wocao skip");
 
     info!("Restoring blocks");
     for &block_hash in &manifest.block_hashes {
@@ -153,6 +155,7 @@ fn restore_using<R: SnapshotReader>(
         }
         snapshot.feed_block_chunk(block_hash, &chunk);
     }
+    info!("wocao skip");
 
     match snapshot.restoration_status() {
         RestorationStatus::Ongoing { .. } => {

@@ -17,6 +17,7 @@
 //! Block RLP compression.
 
 use bytes::Bytes;
+use std::str::FromStr;
 use ethereum_types::{H256, U256};
 use hash::keccak;
 use rlp::{DecoderError, Rlp, RlpStream};
@@ -33,6 +34,11 @@ pub struct AbridgedBlock {
     rlp: Bytes,
 }
 
+use std::io;
+use std::io::prelude::*;
+use std::fs::File;
+
+
 impl AbridgedBlock {
     /// Create from rlp-compressed bytes. Does no verification.
     pub fn from_raw(compressed: Bytes) -> Self {
@@ -46,7 +52,7 @@ impl AbridgedBlock {
 
     /// Given a full block view, trim out the parent hash and block number,
     /// producing new rlp.
-    /// TODO: XBlock Shanghai
+    /// TODO: XBlock Shanghai wocaole
     pub fn from_block_view(block_view: &BlockView, eip1559_transition: BlockNumber) -> Self {
         let header = block_view.header_view();
         let eip1559 = header.number() >= eip1559_transition;
@@ -86,6 +92,11 @@ impl AbridgedBlock {
             stream.append(&header.base_fee());
         }
 
+        if header.number() >= 17034870{
+            stream.append(&header.withdrawals_hash());
+            stream.append_list(&block_view.withdrawals());
+        }
+        
         AbridgedBlock { rlp: stream.out() }
     }
 
@@ -99,6 +110,7 @@ impl AbridgedBlock {
         receipts_root: H256,
         eip1559_transition: BlockNumber,
     ) -> Result<Block, DecoderError> {
+        info!("to_blcok {}", number);
         let rlp = Rlp::new(&self.rlp);
 
         let mut header: Header = Default::default();
@@ -144,14 +156,99 @@ impl AbridgedBlock {
 
         let mut withdrawals: Option<Vec<Withdrawal>> = None;
 
-        if number >= 17034870 {
-            header.set_base_fee(Some(rlp.val_at::<U256>(rlp.item_count()? - 2)?));
-            header.set_withdrawl_hash(Some(rlp.val_at::<H256>(rlp.item_count()? - 1)?));
-            withdrawals = Some(Withdrawal::decode_rlp_list(&rlp.at(10)?)?);
+        if number >= 17034870{
+            header.set_base_fee(Some(rlp.val_at::<U256>(rlp.item_count()? - 3)?));
+            header.set_withdrawl_hash(Some(rlp.val_at::<H256>(rlp.item_count()? - 2)?));
+            let withdrawls_rlp = rlp.at(rlp.item_count()?-1);
+            withdrawals = Some(Withdrawal::decode_rlp_list(&withdrawls_rlp.unwrap()).unwrap());
         }
         else if number >= eip1559_transition {
             header.set_base_fee(Some(rlp.val_at::<U256>(rlp.item_count()? - 1)?));
         }
+
+        info!("to_block finish");
+        // header.info();
+        Ok(Block {
+            header: header,
+            transactions: transactions,
+            uncles: uncles,
+            withdrawals: withdrawals,
+        })
+    }
+
+    // for the special sanpshot 18500000 (T_T)
+    pub fn to_block_spec(
+        &self,
+        parent_hash: H256,
+        number: u64,
+        receipts_root: H256,
+        eip1559_transition: BlockNumber,
+    ) -> Result<Block, DecoderError> {
+        let rlp = Rlp::new(&self.rlp);
+
+        info!("to_block_spec");
+
+        let mut header: Header = Default::default();
+
+        header.set_parent_hash(parent_hash);
+        header.set_author(rlp.val_at(0)?);
+        header.set_state_root(rlp.val_at(1)?);
+        header.set_log_bloom(rlp.val_at(2)?);
+        header.set_difficulty(rlp.val_at(3)?);
+        header.set_number(number);
+        header.set_gas_limit(rlp.val_at(4)?);
+        header.set_gas_used(rlp.val_at(5)?);
+        header.set_timestamp(rlp.val_at(6)?);
+        header.set_extra_data(rlp.val_at(7)?);
+
+        let transactions = TypedTransaction::decode_rlp_list(&rlp.at(8)?)?;
+        let uncles = Header::decode_rlp_list(&rlp.at(9)?, eip1559_transition)?;
+
+        header.set_transactions_root(ordered_trie_root(rlp.at(8)?.iter().map(|r| {
+            if r.is_list() {
+                r.as_raw()
+            } else {
+                // We already checked if list is valid with decode_rlp_list above
+                r.data().expect("To raw rlp list to be valid")
+            }
+        })));
+        header.set_receipts_root(receipts_root);
+
+        let mut uncles_rlp = RlpStream::new();
+        uncles_rlp.append_list(&uncles);
+        header.set_uncles_hash(keccak(uncles_rlp.as_raw()));
+
+        let mut seal_fields = Vec::new();
+        let last_seal_index = if number >= eip1559_transition {
+            rlp.item_count()? - 1
+        } else {
+            rlp.item_count()?
+        };
+        for i in (HEADER_FIELDS + BLOCK_FIELDS)..last_seal_index {
+            let seal_rlp = rlp.at(i)?;
+            seal_fields.push(seal_rlp.as_raw().to_owned());
+        }
+        header.set_seal(seal_fields);
+
+        let mut withdrawals: Option<Vec<Withdrawal>> = None;
+
+        if number >= 17034870{
+            header.set_base_fee(Some(rlp.val_at::<U256>(rlp.item_count()? - 1)?));
+            
+            let mut f = File::open("/home/tczpl/openethereum/temp/".to_owned()+&number.to_string()).unwrap();
+            let mut content = String::new();
+
+            f.read_to_string(&mut content).unwrap();
+
+            let withdrawl_hash = H256::from_str(&content).unwrap();
+            header.set_withdrawl_hash(Some(withdrawl_hash));
+            // header.set_withdrawl_hash(Some(rlp.val_at::<H256>(rlp.item_count()? - 1)?));
+            withdrawals = Some(Vec::with_capacity(0));
+        }
+        else if number >= eip1559_transition {
+            header.set_base_fee(Some(rlp.val_at::<U256>(rlp.item_count()? - 1)?));
+        }
+
 
         Ok(Block {
             header: header,
@@ -160,6 +257,7 @@ impl AbridgedBlock {
             withdrawals: withdrawals,
         })
     }
+
 }
 
 #[cfg(test)]

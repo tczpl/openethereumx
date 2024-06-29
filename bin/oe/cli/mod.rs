@@ -229,6 +229,15 @@ usage! {
                 "Number of blocks to revert",
             }
 
+
+            CMD cmd_db_prune {
+                "Prunes <=NUM blocks from the db",
+
+                ARG arg_db_prune_num: (u32) = 10u32,
+                "<NUM>",
+                "Number of blocks to prune",
+            }
+
         }
     }
     {

@@ -51,6 +51,7 @@ use crate::{
     blockchain::{
         BlockchainCmd, ExportBlockchain, ExportState, ImportBlockchain, KillBlockchain,
         ResetBlockchain,
+        PruneBlockchain,
     },
     cache::CacheConfig,
     helpers::{
@@ -217,6 +218,19 @@ impl Configuration {
                 compaction,
                 cache_config,
                 num: self.args.arg_db_reset_num,
+            }))
+        } else if self.args.cmd_db && self.args.cmd_db_prune {
+            Cmd::Blockchain(BlockchainCmd::Prune(PruneBlockchain {
+                dirs,
+                spec,
+                pruning,
+                pruning_history,
+                pruning_memory: self.args.arg_pruning_memory,
+                tracing,
+                fat_db,
+                compaction,
+                cache_config,
+                num: self.args.arg_db_prune_num,
             }))
         } else if self.args.cmd_db && self.args.cmd_db_kill {
             Cmd::Blockchain(BlockchainCmd::Kill(KillBlockchain {

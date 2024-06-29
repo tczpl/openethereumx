@@ -74,6 +74,7 @@ use client::{
     Mode, NewBlocks, Nonce, PrepareOpenBlock, ProvingBlockChainClient, PruningInfo, ReopenBlock,
     ScheduleInfo, SealedBlockImporter, StateClient, StateInfo, StateOrBlock, TraceFilter, TraceId,
     TransactionId, TransactionInfo, UncleId,
+    BlockChainPrune
 };
 use engines::{
     epoch::PendingTransition, EngineError, EpochTransition, EthEngine, ForkChoice, SealingState,
@@ -1827,6 +1828,41 @@ impl BlockChainReset for Client {
     }
 }
 
+
+
+impl BlockChainPrune for Client {
+    fn prune(&self, num: u32) -> Result<(), String> {
+        info!("prune start {}", num);
+        let mut num2  = num;
+        while num2 > 0 {
+            num2 = num2 - 1 ;
+            info!("prune {}", num2);
+
+            let mut batch = DBTransaction::new();
+            
+            let hash = self.chain.read().block_hash(num2 as u64 ).unwrap();
+            let number = self.chain.read().block_number(&hash).unwrap();
+            
+            batch.delete(::db::COL_HEADERS, hash.as_bytes());
+            batch.delete(::db::COL_BODIES, hash.as_bytes());
+            Writable::delete::<BlockDetails, H264>(&mut batch, ::db::COL_EXTRA, &hash);
+            Writable::delete::<BlockReceipts, H264>(&mut batch, ::db::COL_EXTRA, &hash);
+            Writable::delete::<H256, BlockNumberKey>(&mut batch, ::db::COL_EXTRA, &number);
+
+            self.db
+                .read()
+                .key_value()
+                .write(batch)
+                .map_err(|err| format!("could not delete blocks; io error occurred: {}", err))?;  
+        }
+
+
+        Ok(())
+    }
+}
+
+
+
 impl Nonce for Client {
     fn nonce(&self, address: &Address, id: BlockId) -> Option<U256> {
         self.state_at(id).and_then(|s| s.nonce(address).ok())
@@ -1935,7 +1971,14 @@ impl ImportBlock for Client {
         let status = self.block_status(BlockId::Hash(unverified.parent_hash()));
         if status == BlockStatus::Unknown {
             // TODO: XBlock just skip this block
-            info!("skip {}", unverified.hash());
+            if false && unverified.header.number() > 18498000 {
+                info!("skip num={:?} parent_hash={:?} withdrawl_hash={:?}", unverified.header.number(), unverified.header.parent_hash(), unverified.header.withdrawl_hash());
+            }
+            info!("skip num={:?}", unverified.header.number());
+            if unverified.header.number() == 18499937 ||  unverified.header.number() == 17500000 {
+                unverified.header.info();
+                // panic!();
+            }
             bail!(EthcoreErrorKind::Import(ImportErrorKind::AlreadyInChain));
             // bail!(EthcoreErrorKind::Block(BlockError::UnknownParent(
             //     unverified.parent_hash()

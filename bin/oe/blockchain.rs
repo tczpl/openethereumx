@@ -33,6 +33,7 @@ use ethcore::{
     client::{
         Balance, BlockChainClient, BlockChainReset, BlockId, DatabaseCompactionProfile,
         ImportExportBlocks, Mode, Nonce, VMType,
+        BlockChainPrune,
     },
     miner::Miner,
     verification::queue::VerifierSettings,
@@ -47,10 +48,26 @@ pub enum BlockchainCmd {
     Export(ExportBlockchain),
     ExportState(ExportState),
     Reset(ResetBlockchain),
+    Prune(PruneBlockchain),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct ResetBlockchain {
+    pub dirs: Directories,
+    pub spec: SpecType,
+    pub pruning: Pruning,
+    pub pruning_history: u64,
+    pub pruning_memory: usize,
+    pub tracing: Switch,
+    pub fat_db: Switch,
+    pub compaction: DatabaseCompactionProfile,
+    pub cache_config: CacheConfig,
+    pub num: u32,
+}
+
+
+#[derive(Debug, PartialEq)]
+pub struct PruneBlockchain {
     pub dirs: Directories,
     pub spec: SpecType,
     pub pruning: Pruning,
@@ -137,6 +154,7 @@ pub fn execute(cmd: BlockchainCmd) -> Result<(), String> {
         BlockchainCmd::Export(export_cmd) => execute_export(export_cmd),
         BlockchainCmd::ExportState(export_cmd) => execute_export_state(export_cmd),
         BlockchainCmd::Reset(reset_cmd) => execute_reset(reset_cmd),
+        BlockchainCmd::Prune(prune_cmd) => execute_prune(prune_cmd),
     }
 }
 
@@ -522,6 +540,30 @@ fn execute_reset(cmd: ResetBlockchain) -> Result<(), String> {
 
     Ok(())
 }
+
+
+fn execute_prune(cmd: PruneBlockchain) -> Result<(), String> {
+    let service = start_client(
+        cmd.dirs,
+        cmd.spec,
+        cmd.pruning,
+        cmd.pruning_history,
+        cmd.pruning_memory,
+        cmd.tracing,
+        cmd.fat_db,
+        cmd.compaction,
+        cmd.cache_config,
+        false,
+        0,
+    )?;
+
+    let client = service.client();
+    client.prune(cmd.num)?;
+    info!("{}", Colour::Green.bold().paint("Successfully prune db!"));
+
+    Ok(())
+}
+
 
 pub fn kill_db(cmd: KillBlockchain) -> Result<(), String> {
     let spec = cmd.spec.spec(&cmd.dirs.cache)?;

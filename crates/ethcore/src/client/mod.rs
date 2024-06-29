@@ -42,6 +42,7 @@ pub use self::{
         ImportBlock, ImportExportBlocks, ImportSealedBlock, IoClient, Nonce, PrepareOpenBlock,
         ProvingBlockChainClient, ReopenBlock, ScheduleInfo, SealedBlockImporter, StateClient,
         StateOrBlock, TransactionInfo,
+        BlockChainPrune,
     },
 };
 pub use state::StateInfo;
