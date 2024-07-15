@@ -15,7 +15,7 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Transaction Execution environment.
-use bytes::Bytes;
+use bytes::{Bytes, ToPretty};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use executive::*;
 use machine::EthereumMachine as Machine;
@@ -43,6 +43,7 @@ pub struct OriginInfo {
     origin: Address,
     gas_price: U256,
     value: U256,
+    blob_hashes: Vec<H256>,
 }
 
 impl OriginInfo {
@@ -55,6 +56,7 @@ impl OriginInfo {
             value: match params.value {
                 ActionValue::Transfer(val) | ActionValue::Apparent(val) => val,
             },
+            blob_hashes: params.blob_hashes.clone(),
         }
     }
 }
@@ -119,6 +121,22 @@ where
     V: VMTracer,
     B: StateBackend,
 {
+    fn get_transient_storage(&self, key: &H256) -> vm::Result<H256> {
+        self.state
+            .get_transient_storage(&self.origin_info.address, key)
+            .map_err(Into::into)
+    }
+
+    fn set_transient_storage(&mut self, key: H256, value: H256) -> vm::Result<()> {
+        if self.static_flag {
+            Err(vm::Error::MutableCallInStaticContext)
+        } else {
+            self.state
+                .set_transient_storage(&self.origin_info.address, key, value)
+                .map_err(Into::into)
+        }
+    }
+
     fn initial_storage_at(&self, key: &H256) -> vm::Result<H256> {
         if self
             .state
@@ -203,6 +221,7 @@ where
                 call_type: CallType::Call,
                 params_type: vm::ParamsType::Separate,
                 access_list: AccessList::default(),
+                blob_hashes: self.origin_info.blob_hashes.clone(),
             };
 
             let mut ex = Executive::new(self.state, self.env_info, self.machine, self.schedule);
@@ -292,6 +311,7 @@ where
             call_type: CallType::None,
             params_type: vm::ParamsType::Embedded,
             access_list: self.substate.access_list.clone(),
+            blob_hashes: self.origin_info.blob_hashes.clone(),
         };
 
         if !self.static_flag {
@@ -372,12 +392,14 @@ where
             call_type: call_type,
             params_type: vm::ParamsType::Separate,
             access_list: self.substate.access_list.clone(),
+            blob_hashes: self.origin_info.blob_hashes.clone(),
         };
 
         if let Some(value) = value {
             params.value = ActionValue::Transfer(value);
         }
 
+        // wocao???
         if trap {
             return Err(TrapKind::Call(params));
         }
@@ -489,6 +511,28 @@ where
                 self.substate.to_cleanup_mode(&self.schedule),
             )?;
         }
+
+        self.tracer
+            .trace_suicide(address, balance, refund_address.clone());
+        self.substate.suicides.insert(address);
+
+        Ok(())
+    }
+
+    fn suicide2(&mut self, refund_address: &Address) -> vm::Result<()> {
+        if self.static_flag {
+            return Err(vm::Error::MutableCallInStaticContext);
+        }
+
+        let address = self.origin_info.address.clone();
+        let balance = self.balance(&address)?;
+        trace!(target: "ext", "Suiciding {} -> {} (xfer: {})", address, refund_address, balance);
+        self.state.transfer_balance(
+            &address,
+            refund_address,
+            &balance,
+            self.substate.to_cleanup_mode(&self.schedule),
+        )?;
 
         self.tracer
             .trace_suicide(address, balance, refund_address.clone());

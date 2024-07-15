@@ -152,6 +152,7 @@ pub fn execute(cmd: RunCmd, logger: Arc<RotatingLogger>) -> Result<RunningClient
 
     // load genesis hash
     let genesis_hash = spec.genesis_header().hash();
+    // let genesis_hash = H256::from_str("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3").unwrap();
 
     // database paths
     let db_dirs = cmd.dirs.database(

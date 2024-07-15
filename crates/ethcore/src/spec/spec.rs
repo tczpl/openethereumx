@@ -860,6 +860,7 @@ impl Spec {
                 gas_limit: U256::max_value(),
                 base_fee: None,
                 mix_hash: H256::zero(),
+                blob_base_fee: 0,
             };
 
             if !self.constructors.is_empty() {
@@ -881,6 +882,7 @@ impl Spec {
                         call_type: CallType::None,
                         params_type: ParamsType::Embedded,
                         access_list: AccessList::default(),
+                        blob_hashes: Vec::<H256>::default(),
                     };
 
                     let mut substate = Substate::new();
@@ -1083,6 +1085,7 @@ impl Spec {
                 gas_used: 0.into(),
                 base_fee: genesis.base_fee(),
                 mix_hash: genesis.mix_hash(7),
+                blob_base_fee: 0,
             };
 
             let from = Address::default();

@@ -167,7 +167,18 @@ impl FakeExt {
     }
 }
 
-impl Ext for FakeExt {
+impl Ext for FakeExt {    
+    fn set_transient_storage(&mut self, key: H256, value: H256) -> Result<()> {
+        self.store.insert(key, value);
+        Ok(())
+    }
+
+    fn get_transient_storage(&self, key: &H256) -> Result<H256> {
+        Ok(self.store.get(key).unwrap_or(&H256::default()).clone())
+    }
+
+
+
     fn initial_storage_at(&self, key: &H256) -> Result<H256> {
         match self.initial_store.get(key) {
             Some(value) => Ok(*value),
@@ -283,6 +294,10 @@ impl Ext for FakeExt {
     }
 
     fn suicide(&mut self, refund_address: &Address) -> Result<()> {
+        self.suicides.insert(refund_address.clone());
+        Ok(())
+    }
+    fn suicide2(&mut self, refund_address: &Address) -> Result<()> {
         self.suicides.insert(refund_address.clone());
         Ok(())
     }

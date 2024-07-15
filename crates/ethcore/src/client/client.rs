@@ -111,6 +111,9 @@ pub use types::{block_status::BlockStatus, blockchain_info::BlockChainInfo};
 pub use verification::QueueInfo as BlockQueueInfo;
 use_contract!(registry, "res/contracts/registrar.json");
 
+// extern crate rlp_compress;
+// use self::rlp_compress::{blocks_swapper, compress, decompress};
+
 const ANCIENT_BLOCKS_QUEUE_SIZE: usize = 4096;
 // Max number of blocks imported at once.
 const ANCIENT_BLOCKS_BATCH_SIZE: usize = 4;
@@ -574,6 +577,7 @@ impl Importer {
             .verify_block_final(&header, &locked_block.header)
         {
             warn!(target: "client", "Stage 5 block verification failed for #{} ({})\nError: {:?}", header.number(), header.hash(), e);
+            info!("block gasUsed={}", header.gas_used());
             bail!(e);
         }
 
@@ -823,6 +827,7 @@ impl Importer {
                             gas_limit: u64::max_value().into(),
                             base_fee: header.base_fee(),
                             mix_hash: header.mix_hash(1),
+                            blob_base_fee: header.blob_base_fee(),
                         };
 
                         let call = move |addr, data| {
@@ -1217,6 +1222,7 @@ impl Client {
                 None
             },
             mix_hash: H256::zero(),
+            blob_base_fee: 0,
         })
     }
 
@@ -1833,32 +1839,55 @@ impl BlockChainReset for Client {
 impl BlockChainPrune for Client {
     fn prune(&self, num: u32) -> Result<(), String> {
         info!("prune start {}", num);
-        let mut num2  = num;
-        while num2 > 0 {
-            num2 = num2 - 1 ;
-            info!("prune {}", num2);
+        // caole !!!
+        
+        // let num2 = 19426638 ;
+        // let num3 = num2 -1;
+        // info!("prune {}", num2); //prune 0
 
-            let mut batch = DBTransaction::new();
-            
-            let hash = self.chain.read().block_hash(num2 as u64 ).unwrap();
-            let number = self.chain.read().block_number(&hash).unwrap();
-            
-            batch.delete(::db::COL_HEADERS, hash.as_bytes());
-            batch.delete(::db::COL_BODIES, hash.as_bytes());
-            Writable::delete::<BlockDetails, H264>(&mut batch, ::db::COL_EXTRA, &hash);
-            Writable::delete::<BlockReceipts, H264>(&mut batch, ::db::COL_EXTRA, &hash);
-            Writable::delete::<H256, BlockNumberKey>(&mut batch, ::db::COL_EXTRA, &number);
+        // let mut batch = DBTransaction::new();
+        
+        // let hash = self.chain.read().block_hash(num2 as u64 ).unwrap();
+        // let number = self.chain.read().block_number(&hash).unwrap();
+        
+        // batch.delete(::db::COL_HEADERS, hash.as_bytes());
+        // batch.delete(::db::COL_BODIES, hash.as_bytes());
+        // Writable::delete::<BlockDetails, H264>(&mut batch, ::db::COL_EXTRA, &hash);
+        // Writable::delete::<BlockReceipts, H264>(&mut batch, ::db::COL_EXTRA, &hash);
+        // Writable::delete::<H256, BlockNumberKey>(&mut batch, ::db::COL_EXTRA, &number);
 
-            self.db
-                .read()
-                .key_value()
-                .write(batch)
-                .map_err(|err| format!("could not delete blocks; io error occurred: {}", err))?;  
-        }
+        // let new_best_hash = self.chain.read().block_hash(num3 as u64 ).unwrap();
+        // batch.put(db::COL_EXTRA, b"best", new_best_hash.as_bytes());
 
+
+        // self.db
+        //     .read()
+        //     .key_value()
+        //     .write(batch)
+        //     .map_err(|err| format!("could not delete blocks; io error occurred: {}", err))?;  
 
         Ok(())
     }
+
+
+    // fn get_genesis_back(){
+    //     let genesis_block_str = "f9021af90214a00000000000000000000000000000000000000000000000000000000000000000a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347940000000000000000000000000000000000000000a0d7f8974fb5ac78d9ac099b9ad5018bedc2ce0a72dad1827a1709da30580f0544a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b9010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000850400000000808213888080a011bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82faa00000000000000000000000000000000000000000000000000000000000000000880000000000000042c0c0c0";
+    //     let block = encoded::Block::new(genesis_block_str.from_hex().unwrap());
+    //     let mut batch = DBTransaction::new();
+    //     let hash = H256::from_str("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3").unwrap();
+    //     info!("{:?} {:?}", hash , block.hash());
+    //     info!("header={:?}", block.header());
+    //     let compressed_header = compress(block.header_view().rlp().as_raw(), blocks_swapper());
+    //     let num: BlockNumber = 0;
+    //     batch.write(db::COL_EXTRA, &num, &hash);
+    //     batch.put(db::COL_HEADERS, hash.as_bytes(), &compressed_header);
+    //     /* batch.put(db::COL_BODIES, hash.as_bytes(), &compressed_body); */
+    //     self.db
+    //         .read()
+    //         .key_value()
+    //         .write(batch)
+    //         .map_err(|err| format!("could not delete blocks; io error occurred: {}", err))?;  
+    // }
 }
 
 
@@ -2065,6 +2094,7 @@ impl Call for Client {
                 header.base_fee()
             },
             mix_hash: header.mix_hash(2),
+            blob_base_fee: header.blob_base_fee(),
         };
         let machine = self.engine.machine();
 
@@ -2087,6 +2117,7 @@ impl Call for Client {
             gas_limit: U256::max_value(),
             base_fee: header.base_fee(),
             mix_hash: header.mix_hash(3),
+            blob_base_fee: header.blob_base_fee(),
         };
 
         let mut results = Vec::with_capacity(transactions.len());
@@ -2132,6 +2163,7 @@ impl Call for Client {
                     header.base_fee()
                 },
                 mix_hash: header.mix_hash(4),
+                blob_base_fee: header.blob_base_fee(),
             };
 
             (init, max, env_info)

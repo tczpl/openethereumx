@@ -560,7 +560,7 @@ impl Account {
     ) -> TrieResult<()> {
         let mut t = trie_factory.from_existing(db, &mut self.storage_root)?;
         for (k, v) in self.storage_changes.drain() {
-            info!("state tx={:?} addr={:?} k={:?}, v={:?}", txhash, address, k.as_bytes().to_hex(), v.as_bytes().to_hex());
+            // info!("state tx={:?} addr={:?} k={:?}, v={:?}", txhash, address, k.as_bytes().to_hex(), v.as_bytes().to_hex());
             // cast key and value to trait type,
             // so we can call overloaded `to_bytes` method
             match v.is_zero() {

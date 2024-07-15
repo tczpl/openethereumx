@@ -22,6 +22,7 @@ use serde_repr::*;
 #[derive(Serialize_repr, Eq, Hash, Deserialize_repr, Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum TypedTxId {
+    BlobTransaction = 0x03,
     EIP1559Transaction = 0x02,
     AccessList = 0x01,
     Legacy = 0x00,
@@ -34,12 +35,14 @@ impl TypedTxId {
             0 => Some(Self::Legacy),
             1 => Some(Self::AccessList),
             2 => Some(Self::EIP1559Transaction),
+            3 => Some(Self::BlobTransaction),
             _ => None,
         }
     }
 
     pub fn try_from_wire_byte(n: u8) -> Result<Self, ()> {
         match n {
+            x if x == TypedTxId::BlobTransaction as u8 => Ok(TypedTxId::BlobTransaction),
             x if x == TypedTxId::EIP1559Transaction as u8 => Ok(TypedTxId::EIP1559Transaction),
             x if x == TypedTxId::AccessList as u8 => Ok(TypedTxId::AccessList),
             x if (x & 0x80) != 0x00 => Ok(TypedTxId::Legacy),
@@ -54,6 +57,7 @@ impl TypedTxId {
             Some(0x00) => Some(Self::Legacy),
             Some(0x01) => Some(Self::AccessList),
             Some(0x02) => Some(Self::EIP1559Transaction),
+            Some(0x03) => Some(Self::BlobTransaction),
             _ => None,
         }
     }
@@ -86,7 +90,7 @@ mod tests {
         );
         assert_eq!(Ok(TypedTxId::Legacy), TypedTxId::try_from_wire_byte(0x81));
         assert_eq!(Err(()), TypedTxId::try_from_wire_byte(0x00));
-        assert_eq!(Err(()), TypedTxId::try_from_wire_byte(0x03));
+        // assert_eq!(Err(()), TypedTxId::try_from_wire_byte(0x03));
     }
 
     #[test]
@@ -113,7 +117,7 @@ mod tests {
             Some(TypedTxId::EIP1559Transaction),
             TypedTxId::from_U64_option_id(Some(U64::from(0x02)))
         );
-        assert_eq!(None, TypedTxId::from_U64_option_id(Some(U64::from(0x03))));
+        // assert_eq!(None, TypedTxId::from_U64_option_id(Some(U64::from(0x03))));
     }
 
     #[test]
@@ -124,6 +128,6 @@ mod tests {
             Some(TypedTxId::EIP1559Transaction),
             TypedTxId::from_u8_id(2)
         );
-        assert_eq!(None, TypedTxId::from_u8_id(3));
+        // assert_eq!(None, TypedTxId::from_u8_id(3));
     }
 }

@@ -268,6 +268,7 @@ where
                     None
                 };
                 let is_shanghai = !is_pending && view.number() >= 17034870;
+                let is_dencun = !is_pending && view.number() >= 19426587;
                 Ok(Some(RichBlock {
                     inner: Block {
                         hash: match is_pending {
@@ -323,7 +324,21 @@ where
                                 Withdrawal::from_list(block.view().withdrawals())
                             ),
                             false => None,
-                        }
+                        },
+                        
+                        blob_gas_used:match is_dencun {
+                            true => Some(view.blob_gas_used()),
+                            false => None,
+                        },
+                        excess_blob_gas: match is_dencun {
+                            true => Some(view.excess_blob_gas()),
+                            false => None,
+                        },
+                        parent_beacon_root: match is_dencun {
+                            true => Some(view.parent_beacon_root()),
+                            false => None,
+                        },
+
                     },
                     extra_info: extra.expect(EXTRA_INFO_PROOF),
                 }))
@@ -502,6 +517,9 @@ where
                 transactions: BlockTransactions::Hashes(vec![]),
                 withdrawals_hash: None,
                 withdrawals: None,
+                blob_gas_used: None,
+                excess_blob_gas: None,
+                parent_beacon_root: None,
             },
             extra_info: extra,
         };

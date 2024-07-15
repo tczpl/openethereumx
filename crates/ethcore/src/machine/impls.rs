@@ -200,6 +200,7 @@ impl EthereumMachine {
             call_type: call_type.unwrap_or(CallType::Call),
             params_type: ParamsType::Separate,
             access_list: AccessList::default(),
+            blob_hashes: Vec::<H256>::default(),
         };
         let schedule = self.schedule(env_info.number);
         let mut ex = Executive::new(&mut state, &env_info, self, &schedule);
@@ -329,6 +330,8 @@ impl EthereumMachine {
     // from Spec into here and removing the Spec::builtins field.
     pub fn builtin(&self, a: &Address, block_number: BlockNumber) -> Option<&Builtin> {
         self.builtins().get(a).and_then(|b| {
+            // info!("builtin get a={:?} block_number={:?}  is_active={:?}", a, block_number, b.is_active(block_number));
+            
             if b.is_active(block_number) {
                 Some(b)
             } else {

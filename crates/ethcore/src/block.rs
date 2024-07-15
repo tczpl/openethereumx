@@ -68,6 +68,12 @@ use types::{account_diff, state_diff};
 
 use trace::{ExecutiveTracer, Tracer};
 
+use rustc_hex::FromHex;
+use types::transaction::{
+    self, Action, LocalizedTransaction, TypedTransaction,
+    UnverifiedTransaction,
+};
+
 #[derive(Debug, Serialize)]
 /// Aux type for Diff::Changed.
 pub struct XChangedType<T>
@@ -243,6 +249,7 @@ impl ExecutedBlock {
             gas_limit: *self.header.gas_limit(),
             base_fee: self.header.base_fee(),
             mix_hash: self.header.mix_hash(5),
+            blob_base_fee: self.header.blob_base_fee(),
         }
     }
 
@@ -357,6 +364,44 @@ impl<'x> OpenBlock<'x> {
         Ok(())
     }
 
+
+    /// XBlock Decon
+    pub fn process_beacon_block_root(&mut self, beacon_root: H256){
+        let env_info: EnvInfo = self.block.env_info();
+
+        // wocao???
+        let from_u8 = FromHex::from_hex("fffffffffffffffffffffffffffffffffffffffe").unwrap();
+        let from = Address::from_slice(&from_u8);
+        let to_u8 = FromHex::from_hex("000F3df6D732807Ef1319fB7B8bB8522d0Beac02").unwrap();
+        let to = Address::from_slice(&to_u8);
+        
+        let beacon_root_str = beacon_root.as_bytes();
+        let data = Vec::<u8>::from(beacon_root_str);
+        // let data = FromHex::from_hex(&beacon_root_str.as_str()).unwrap();
+        
+        let t = TypedTransaction::Legacy(transaction::Transaction {
+            nonce: U256::from(0),
+            action: Action::Call(to),
+            gas: U256::from(10_000_000),
+            gas_price: U256::from(0),
+            value: U256::from(0),
+            data: data,
+        })
+        .fake_sign(from);
+
+        // info!("begin root={:?}", self.block.state.root().clone());
+        let outcome = self.block.state.apply(
+            &env_info,
+            self.engine.machine(),
+            &t,
+            self.block.traces.is_enabled(),
+        );
+        self.block.state.commit();
+        // info!("beacon_block_root={:?}", beacon_root);
+        // info!("end root={:?}", self.block.state.root().clone());
+    }
+
+
     /// Push a transaction into the block.
     ///
     /// If valid, it will be executed, and archived together with the receipt.
@@ -453,6 +498,8 @@ impl<'x> OpenBlock<'x> {
             .set_transactions_root(*header.transactions_root());
         self.block
             .header.set_seal(header.seal().to_vec());
+        self.block.header.set_excess_blob_gas(header.excess_blob_gas());
+        self.block.header.set_parent_beacon_root(header.parent_beacon_root());
         // TODO: that's horrible. set only for backwards compatibility
         if header.extra_data().len() > self.engine.maximum_extra_data_size() {
             warn!("Couldn't set extradata. Ignoring.");
@@ -694,6 +741,10 @@ pub(crate) fn enact(
 
     // t_nb 8.2 transfer all field from current header to OpenBlock header that we created
     b.populate_from(&header);
+
+    if header.number() >= 19426587 {
+        b.process_beacon_block_root(header.parent_beacon_root().unwrap());
+    }
 
     // t_nb 8.3 execute transactions one by one
     b.push_transactions(transactions)?;

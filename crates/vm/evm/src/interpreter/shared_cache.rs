@@ -94,9 +94,9 @@ impl SharedCache {
                     instructions::JUMPDEST => {
                         jump_dests.insert(position);
                     }
-                    instructions::BEGINSUB => {
-                        sub_entrypoints.insert(position);
-                    }
+                    // instructions::BEGINSUB => {
+                    //     sub_entrypoints.insert(position);
+                    // }
                     _ => {
                         if let Some(push_bytes) = instruction.push_bytes() {
                             position += push_bytes;

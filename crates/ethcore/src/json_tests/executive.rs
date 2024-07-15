@@ -164,6 +164,7 @@ where
             gas_limit: *gas,
             value: *value,
         });
+        log::info!("create address={:?} code={:?}", address, &code);
         let contract_address = contract_address(address, &self.sender, &self.nonce, &code).0;
         Ok(ContractCreateResult::Created(contract_address, *gas))
     }

@@ -38,7 +38,7 @@ pub trait Stack<T> {
 }
 
 pub struct VecStack<S> {
-    stack: Vec<S>,
+    pub stack: Vec<S>,
     logs: [S; instructions::MAX_NO_OF_TOPICS],
 }
 

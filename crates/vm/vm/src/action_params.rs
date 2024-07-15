@@ -92,6 +92,8 @@ pub struct ActionParams {
     pub params_type: ParamsType,
     /// Current access list
     pub access_list: AccessList,
+
+    pub blob_hashes: Vec<H256>,
 }
 
 impl Default for ActionParams {
@@ -111,6 +113,7 @@ impl Default for ActionParams {
             call_type: CallType::None,
             params_type: ParamsType::Separate,
             access_list: AccessList::default(),
+            blob_hashes: Vec::<H256>::default(),
         }
     }
 }
@@ -135,6 +138,7 @@ impl From<ethjson::vm::Transaction> for ActionParams {
             }, // TODO @debris is this correct?
             params_type: ParamsType::Separate,
             access_list: AccessList::default(),
+            blob_hashes: t.blob_hashes,
         }
     }
 }

@@ -132,6 +132,7 @@ fn check_first_proof(
         gas_used: 0.into(),
         base_fee: old_header.base_fee(),
         mix_hash: old_header.mix_hash(6),
+        blob_base_fee: old_header.blob_base_fee(),
     };
 
     // check state proof using given machine.

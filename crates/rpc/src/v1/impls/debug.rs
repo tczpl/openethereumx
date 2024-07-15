@@ -102,6 +102,10 @@ impl<C: BlockChainClient + 'static> Debug for DebugClient<C> {
                         extra_data: block.header.extra_data().clone().into(),
                         withdrawals_hash: None,
                         withdrawals: None,
+
+                        blob_gas_used: None,
+                        excess_blob_gas: None,
+                        parent_beacon_root: None,
                     },
                     extra_info: vec![
                         ("reason".to_owned(), reason),

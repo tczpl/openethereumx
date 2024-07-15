@@ -25,7 +25,7 @@ use ethereum_types::{Address, BigEndianHash, H160, H256, U256};
 use parity_util_mem::MallocSizeOf;
 
 use rlp::{self, DecoderError, Rlp, RlpStream};
-use std::{cmp::min, ops::Deref};
+use std::{cmp::min, default, ops::Deref};
 
 pub type AccessListItem = (H160, Vec<H256>);
 pub type AccessList = Vec<AccessListItem>;
@@ -501,12 +501,164 @@ impl EIP1559TransactionTx {
     }
 }
 
+
+#[derive(Debug, Clone, Eq, PartialEq, MallocSizeOf)]
+pub struct BlobTransactionTx {
+    pub transaction: AccessListTx,
+    pub max_priority_fee_per_gas: U256,
+    pub max_fee_per_blob_gas: U256,
+    pub blob_hashes: Vec<H256>,
+}
+
+impl BlobTransactionTx {
+    pub fn tx_type(&self) -> TypedTxId {
+        TypedTxId::BlobTransaction
+    }
+
+    pub fn tx(&self) -> &Transaction {
+        &self.transaction.tx()
+    }
+
+    pub fn tx_mut(&mut self) -> &mut Transaction {
+        self.transaction.tx_mut()
+    }
+
+    // decode bytes by this payload spec: rlp([2, [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas(gasPrice), gasLimit, to, value, data, access_list, senderV, senderR, senderS]])
+    pub fn decode(tx: &[u8]) -> Result<UnverifiedTransaction, DecoderError> {
+        // info!("decoding blob TX!!!");
+        let tx_rlp = &Rlp::new(tx);
+
+        // we need to have 12+2 items in this list
+        if tx_rlp.item_count()? != 14 {
+            return Err(DecoderError::RlpIncorrectListLen);
+        }
+
+        let chain_id = Some(tx_rlp.val_at(0)?);
+
+        let max_priority_fee_per_gas = tx_rlp.val_at(2)?;
+
+        let tx = Transaction {
+            nonce: tx_rlp.val_at(1)?,
+            gas_price: tx_rlp.val_at(3)?, //taken from max_fee_per_gas
+            gas: tx_rlp.val_at(4)?,
+            action: tx_rlp.val_at(5)?,
+            value: tx_rlp.val_at(6)?,
+            data: tx_rlp.val_at(7)?,
+        };
+
+        // access list we get from here
+        let accl_rlp = tx_rlp.at(8)?;
+
+        // access_list pattern: [[{20 bytes}, [{32 bytes}...]]...]
+        let mut accl: AccessList = Vec::new();
+
+        for i in 0..accl_rlp.item_count()? {
+            let accounts = accl_rlp.at(i)?;
+
+            // check if there is list of 2 items
+            if accounts.item_count()? != 2 {
+                return Err(DecoderError::Custom("Unknown access list length"));
+            }
+            accl.push((accounts.val_at(0)?, accounts.list_at(1)?));
+        }
+
+        let max_fee_per_blob_gas = tx_rlp.val_at(9)?;
+
+        let blob_hashes: Vec<H256> = tx_rlp.list_at(10)?;
+
+        // we get signature part from here
+        let signature = SignatureComponents {
+            standard_v: tx_rlp.val_at(11)?,
+            r: tx_rlp.val_at(12)?,
+            s: tx_rlp.val_at(13)?,
+        };
+
+        // and here we create UnverifiedTransaction and calculate its hash
+        Ok(UnverifiedTransaction::new(
+            TypedTransaction::BlobTransaction(BlobTransactionTx {
+                transaction: AccessListTx::new(tx, accl),
+                max_priority_fee_per_gas,
+                max_fee_per_blob_gas,
+                blob_hashes,
+            }),
+            chain_id,
+            signature,
+            H256::zero(),
+        )
+        .compute_hash())
+    }
+
+    fn encode_payload(
+        &self,
+        chain_id: Option<u64>,
+        signature: Option<&SignatureComponents>,
+    ) -> RlpStream {
+        let mut stream = RlpStream::new();
+
+        let list_size = if signature.is_some() { 14 } else { 11 };
+        stream.begin_list(list_size);
+
+        // append chain_id. from EIP-2930: chainId is defined to be an integer of arbitrary size.
+        stream.append(&(if let Some(n) = chain_id { n } else { 0 }));
+
+        stream.append(&self.tx().nonce);
+        stream.append(&self.max_priority_fee_per_gas);
+        stream.append(&self.tx().gas_price);
+        stream.append(&self.tx().gas);
+        stream.append(&self.tx().action);
+        stream.append(&self.tx().value);
+        stream.append(&self.tx().data);
+
+        // access list
+        stream.begin_list(self.transaction.access_list.len());
+        for access in self.transaction.access_list.iter() {
+            stream.begin_list(2);
+            stream.append(&access.0);
+            stream.begin_list(access.1.len());
+            for storage_key in access.1.iter() {
+                stream.append(storage_key);
+            }
+        }
+        stream.append(&self.max_fee_per_blob_gas);
+        stream.append_list(&self.blob_hashes);
+        
+
+        // append signature if any
+        if let Some(signature) = signature {
+            signature.rlp_append(&mut stream);
+        }
+        stream
+    }
+
+    // encode by this payload spec: 0x02 | rlp([2, [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas(gasPrice), gasLimit, to, value, data, access_list, senderV, senderR, senderS]])
+    pub fn encode(
+        &self,
+        chain_id: Option<u64>,
+        signature: Option<&SignatureComponents>,
+    ) -> Vec<u8> {
+        let stream = self.encode_payload(chain_id, signature);
+        // make as vector of bytes
+        [&[TypedTxId::BlobTransaction as u8], stream.as_raw()].concat()
+    }
+
+    pub fn rlp_append(
+        &self,
+        rlp: &mut RlpStream,
+        chain_id: Option<u64>,
+        signature: &SignatureComponents,
+    ) {
+        rlp.append(&self.encode(chain_id, Some(signature)));
+    }
+}
+
+
 #[derive(Debug, Clone, Eq, PartialEq, MallocSizeOf)]
 pub enum TypedTransaction {
     Legacy(Transaction),      // old legacy RLP encoded transaction
     AccessList(AccessListTx), // EIP-2930 Transaction with a list of addresses and storage keys that the transaction plans to access.
     // Accesses outside the list are possible, but become more expensive.
     EIP1559Transaction(EIP1559TransactionTx),
+    BlobTransaction(BlobTransactionTx),
 }
 
 impl TypedTransaction {
@@ -515,6 +667,7 @@ impl TypedTransaction {
             Self::Legacy(_) => TypedTxId::Legacy,
             Self::AccessList(_) => TypedTxId::AccessList,
             Self::EIP1559Transaction(_) => TypedTxId::EIP1559Transaction,
+            Self::BlobTransaction(_) => TypedTxId::BlobTransaction,
         }
     }
 
@@ -524,6 +677,7 @@ impl TypedTransaction {
             Self::Legacy(tx) => tx.encode(chain_id, None),
             Self::AccessList(tx) => tx.encode(chain_id, None),
             Self::EIP1559Transaction(tx) => tx.encode(chain_id, None),
+            Self::BlobTransaction(tx) => tx.encode(chain_id, None),
         })
     }
 
@@ -613,6 +767,7 @@ impl TypedTransaction {
             Self::Legacy(tx) => tx,
             Self::AccessList(ocl) => ocl.tx(),
             Self::EIP1559Transaction(tx) => tx.tx(),
+            Self::BlobTransaction(tx) => tx.tx(),
         }
     }
 
@@ -621,11 +776,13 @@ impl TypedTransaction {
             Self::Legacy(tx) => tx,
             Self::AccessList(ocl) => ocl.tx_mut(),
             Self::EIP1559Transaction(tx) => tx.tx_mut(),
+            Self::BlobTransaction(tx) => tx.tx_mut(),
         }
     }
 
     pub fn access_list(&self) -> Option<&AccessList> {
         match self {
+            Self::BlobTransaction(tx) => Some(&tx.transaction.access_list),
             Self::EIP1559Transaction(tx) => Some(&tx.transaction.access_list),
             Self::AccessList(tx) => Some(&tx.access_list),
             Self::Legacy(_) => None,
@@ -644,6 +801,16 @@ impl TypedTransaction {
                     min(self.tx().gas_price, v2)
                 }
             }
+            Self::BlobTransaction(tx) => {
+                let (v2, overflow) = tx
+                    .max_priority_fee_per_gas
+                    .overflowing_add(block_base_fee.unwrap_or_default());
+                if overflow {
+                    self.tx().gas_price
+                } else {
+                    min(self.tx().gas_price, v2)
+                }
+            }
             Self::AccessList(_) => self.tx().gas_price,
             Self::Legacy(_) => self.tx().gas_price,
         }
@@ -651,11 +818,32 @@ impl TypedTransaction {
 
     pub fn max_priority_fee_per_gas(&self) -> U256 {
         match self {
+            Self::BlobTransaction(tx) => tx.max_priority_fee_per_gas,
             Self::EIP1559Transaction(tx) => tx.max_priority_fee_per_gas,
             Self::AccessList(tx) => tx.tx().gas_price,
             Self::Legacy(tx) => tx.gas_price,
         }
     }
+
+
+    pub fn blob_hashes_len(&self) ->  usize {
+        match self {
+            Self::BlobTransaction(tx) => tx.blob_hashes.len(),
+            Self::EIP1559Transaction(tx) => 0,
+            Self::AccessList(tx) => 0,
+            Self::Legacy(tx) => 0,
+        }
+    }
+
+    pub fn blob_hashes(&self) ->  Vec<H256> {
+        match self {
+            Self::BlobTransaction(tx) => tx.blob_hashes.clone(),
+            Self::EIP1559Transaction(tx) => Vec::<H256>::default(),
+            Self::AccessList(tx) => Vec::<H256>::default(),
+            Self::Legacy(tx) => Vec::<H256>::default(),
+        }
+    }
+
 
     pub fn effective_priority_fee(&self, block_base_fee: Option<U256>) -> U256 {
         self.effective_gas_price(block_base_fee)
@@ -665,6 +853,9 @@ impl TypedTransaction {
 
     pub fn has_zero_gas_price(&self) -> bool {
         match self {
+            Self::BlobTransaction(tx) => {
+                tx.tx().gas_price.is_zero() && tx.max_priority_fee_per_gas.is_zero()
+            }
             Self::EIP1559Transaction(tx) => {
                 tx.tx().gas_price.is_zero() && tx.max_priority_fee_per_gas.is_zero()
             }
@@ -684,6 +875,7 @@ impl TypedTransaction {
         }
         // other transaction types
         match id.unwrap() {
+            TypedTxId::BlobTransaction => BlobTransactionTx::decode(&tx[1..]),
             TypedTxId::EIP1559Transaction => EIP1559TransactionTx::decode(&tx[1..]),
             TypedTxId::AccessList => AccessListTx::decode(&tx[1..]),
             TypedTxId::Legacy => return Err(DecoderError::Custom("Unknown transaction legacy")),
@@ -736,6 +928,7 @@ impl TypedTransaction {
             Self::Legacy(tx) => tx.rlp_append(s, chain_id, signature),
             Self::AccessList(opt) => opt.rlp_append(s, chain_id, signature),
             Self::EIP1559Transaction(tx) => tx.rlp_append(s, chain_id, signature),
+            Self::BlobTransaction(tx) => tx.rlp_append(s, chain_id, signature),
         }
     }
 
@@ -752,6 +945,7 @@ impl TypedTransaction {
             Self::Legacy(tx) => tx.encode(chain_id, signature),
             Self::AccessList(opt) => opt.encode(chain_id, signature),
             Self::EIP1559Transaction(tx) => tx.encode(chain_id, signature),
+            Self::BlobTransaction(tx) => tx.encode(chain_id, signature),
         }
     }
 }

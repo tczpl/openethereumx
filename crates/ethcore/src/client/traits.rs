@@ -407,6 +407,7 @@ pub trait BlockChainClient:
                             TypedTxId::Legacy => None,
                             TypedTxId::AccessList => None,
                             TypedTxId::EIP1559Transaction => Some(block.header().base_fee()),
+                            TypedTxId::BlobTransaction => Some(block.header().base_fee()),
                         }
                     }))
                 });

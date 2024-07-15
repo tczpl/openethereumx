@@ -15,14 +15,16 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Trace database.
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use blockchain::BlockChainDB;
 use db::{self, cache_manager::CacheManager, CacheUpdatePolicy, Key, Readable, Writable};
 use ethereum_types::{H256, H264};
+use ethjson::spec::genesis;
 use kvdb::DBTransaction;
 use parity_util_mem::MallocSizeOfExt;
 use parking_lot::RwLock;
+use rustc_hex::FromHex;
 use types::BlockNumber;
 
 use trace::{
@@ -84,6 +86,7 @@ where
         let genesis = extras
             .block_hash(0)
             .expect("Genesis block is always inserted upon extras db creation qed");
+        // let genesis = H256::from_str("d4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3").unwrap();
         batch.write(db::COL_TRACE, &genesis, &FlatBlockTraces::default());
         batch.put(db::COL_TRACE, b"version", TRACE_DB_VER);
         db.key_value()

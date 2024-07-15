@@ -172,6 +172,27 @@ impl<'a> HeaderView<'a> {
     }
 
     
+    pub fn blob_gas_used(&self) -> U256 {
+        match self.rlp.rlp.val_at::<U256>(17) {
+            Ok(blob_gas_used) => blob_gas_used,
+            Err(_) => Default::default(),
+        }
+    }
+
+    pub fn excess_blob_gas(&self) -> U256 {
+        match self.rlp.rlp.val_at::<U256>(18) {
+            Ok(excess_blob_gas) => excess_blob_gas,
+            Err(_) => Default::default(),
+        }
+    }
+
+    pub fn parent_beacon_root(&self) -> H256 {
+        match self.rlp.rlp.val_at::<H256>(19) {
+            Ok(parent_beacon_root) => parent_beacon_root,
+            Err(_) => Default::default(),
+        }
+    }
+
 
     /// Returns a vector of seal fields (RLP-decoded).
     /// If eip1559 is true, seal contains also base_fee_per_gas. Otherwise, it contains only seal fields.

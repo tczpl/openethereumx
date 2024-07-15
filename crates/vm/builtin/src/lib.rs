@@ -19,6 +19,8 @@
 #![allow(missing_docs)]
 
 use std::{
+    fmt,
+    fs,
     cmp::{max, min},
     collections::BTreeMap,
     convert::{TryFrom, TryInto},
@@ -34,7 +36,7 @@ use eth_pairings::public_interface::eip2537::{
     SERIALIZED_G2_POINT_BYTE_LENGTH,
 };
 use ethereum_types::{H256, U256};
-use ethjson;
+use ethjson::{self, hash};
 use keccak_hash::keccak;
 use log::{trace, warn};
 use num::{BigUint, One, Zero};
@@ -43,6 +45,64 @@ use parity_crypto::{
     digest,
     publickey::{recover_allowing_all_zero_message, Signature, ZeroesAllowedMessage},
 };
+use c_kzg::{Bytes32, Bytes48, KzgProof, KzgSettings};
+use c_kzg::{BYTES_PER_G1_POINT, BYTES_PER_G2_POINT};
+use rustc_hex::{FromHex, ToHex};
+use derive_more::{AsMut, AsRef, Deref, DerefMut};
+
+pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
+
+
+// // pub const RETURN_VALUE: &[u8; 64] = &hex!(
+// //     "0000000000000000000000000000000000000000000000000000000000001000"
+// //     "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"
+// // );
+
+
+
+
+/// Number of G1 Points.
+pub const NUM_G1_POINTS: usize = 4096;
+
+/// Number of G2 Points.
+pub const NUM_G2_POINTS: usize = 65;
+
+/// A newtype over list of G1 point from kzg trusted setup.
+#[derive(Debug, Clone, PartialEq, AsRef, AsMut, Deref, DerefMut)]
+#[repr(transparent)]
+pub struct G1Points(pub [[u8; BYTES_PER_G1_POINT]; NUM_G1_POINTS]);
+
+impl Default for G1Points {
+    fn default() -> Self {
+        Self([[0; BYTES_PER_G1_POINT]; NUM_G1_POINTS])
+    }
+}
+
+/// A newtype over list of G2 point from kzg trusted setup.
+#[derive(Debug, Clone, Eq, PartialEq, AsRef, AsMut, Deref, DerefMut)]
+#[repr(transparent)]
+pub struct G2Points(pub [[u8; BYTES_PER_G2_POINT]; NUM_G2_POINTS]);
+
+impl Default for G2Points {
+    fn default() -> Self {
+        Self([[0; BYTES_PER_G2_POINT]; NUM_G2_POINTS])
+    }
+}
+
+/// Default G1 points.
+pub const G1_POINTS: &G1Points = {
+    const BYTES: &[u8] = include_bytes!("./g1_points.bin");
+    assert!(BYTES.len() == core::mem::size_of::<G1Points>());
+    unsafe { &*BYTES.as_ptr().cast::<G1Points>() }
+};
+
+/// Default G2 points.
+pub const G2_POINTS: &G2Points = {
+    const BYTES: &[u8] = include_bytes!("./g2_points.bin");
+    assert!(BYTES.len() == core::mem::size_of::<G2Points>());
+    unsafe { &*BYTES.as_ptr().cast::<G2Points>() }
+};
+
 
 /// Native implementation of a built-in contract.
 pub trait Implementation: Send + Sync {
@@ -667,6 +727,8 @@ enum EthereumBuiltin {
     Bn128Pairing(Bn128Pairing),
     /// blake2_f (The Blake2 compression function F, EIP-152)
     Blake2F(Blake2F),
+    /// XBlock Dencun
+    KZGPointEvaluation(KZGPointEvaluation),
     /// bls12_381 addition in g1
     Bls12G1Add(Bls12G1Add),
     /// bls12_381 multiplication in g1
@@ -701,6 +763,7 @@ impl FromStr for EthereumBuiltin {
             "alt_bn128_mul" => Ok(EthereumBuiltin::Bn128Mul(Bn128Mul)),
             "alt_bn128_pairing" => Ok(EthereumBuiltin::Bn128Pairing(Bn128Pairing)),
             "blake2_f" => Ok(EthereumBuiltin::Blake2F(Blake2F)),
+            "kzg_point_evaluation" => Ok(EthereumBuiltin::KZGPointEvaluation(KZGPointEvaluation)),
             "bls12_381_g1_add" => Ok(EthereumBuiltin::Bls12G1Add(Bls12G1Add)),
             "bls12_381_g1_mul" => Ok(EthereumBuiltin::Bls12G1Mul(Bls12G1Mul)),
             "bls12_381_g1_multiexp" => Ok(EthereumBuiltin::Bls12G1MultiExp(Bls12G1MultiExp)),
@@ -717,6 +780,7 @@ impl FromStr for EthereumBuiltin {
 
 impl Implementation for EthereumBuiltin {
     fn execute(&self, input: &[u8], output: &mut BytesRef) -> Result<(), &'static str> {
+        // log::info!("execute");
         match self {
             EthereumBuiltin::Identity(inner) => inner.execute(input, output),
             EthereumBuiltin::EcRecover(inner) => inner.execute(input, output),
@@ -727,6 +791,7 @@ impl Implementation for EthereumBuiltin {
             EthereumBuiltin::Bn128Mul(inner) => inner.execute(input, output),
             EthereumBuiltin::Bn128Pairing(inner) => inner.execute(input, output),
             EthereumBuiltin::Blake2F(inner) => inner.execute(input, output),
+            EthereumBuiltin::KZGPointEvaluation(inner) => inner.execute(input, output),
             EthereumBuiltin::Bls12G1Add(inner) => inner.execute(input, output),
             EthereumBuiltin::Bls12G1Mul(inner) => inner.execute(input, output),
             EthereumBuiltin::Bls12G1MultiExp(inner) => inner.execute(input, output),
@@ -766,6 +831,9 @@ pub struct Bn128Pairing;
 
 #[derive(Debug)]
 pub struct Blake2F;
+
+#[derive(Debug)]
+pub struct KZGPointEvaluation;
 
 #[derive(Debug)]
 /// The Bls12G1Add builtin.
@@ -808,6 +876,82 @@ impl Implementation for Identity {
         output.write(0, input);
         Ok(())
     }
+}
+
+// copy from revm
+impl Implementation for KZGPointEvaluation {
+    fn execute(&self, input: &[u8], output: &mut BytesRef) -> Result<(), &'static str> {
+        // log::info!("execute KZGPointEvaluation");
+
+        // Verify input length.
+        if input.len() != 192 {
+            return Err("BlobInvalidInputLength error")
+        }
+
+        // // Verify commitment matches versioned_hash
+        let versioned_hash = &input[..32];
+        let commitment = &input[96..144];
+        if kzg_to_versioned_hash(commitment) != versioned_hash {
+            return Err("BlobMismatchedVersion error")
+        }
+
+        // Verify KZG proof with z and y in big endian format
+        let commitment = as_bytes48(commitment);
+        let z = as_bytes32(&input[32..64]);
+        let y = as_bytes32(&input[64..96]);
+        let proof = as_bytes48(&input[144..192]);
+
+        let kzg_settings =
+        KzgSettings::load_trusted_setup(G1_POINTS.as_ref(), G2_POINTS.as_ref())
+            .expect("failed to load default trusted setup");
+        if !verify_kzg_proof(commitment, z, y, proof, &kzg_settings) {
+            return Err("BlobVerifyKzgProofFailed error")
+        }
+
+        let RETURN_VALUE = FromHex::from_hex("000000000000000000000000000000000000000000000000000000000000100073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001").unwrap();
+        output.write(0, &RETURN_VALUE.as_slice());
+        Ok(())
+    }
+}
+
+
+// /// `VERSIONED_HASH_VERSION_KZG ++ sha256(commitment)[1..]`
+#[inline]
+pub fn kzg_to_versioned_hash(commitment: &[u8]) -> [u8; 32] {
+    // let mut hash: [u8; 32];
+    let t = digest::sha256(commitment);
+    let mut hash: [u8; 32] = [0; 32];
+    hash.copy_from_slice(&*t);
+    hash[0] = VERSIONED_HASH_VERSION_KZG;
+    hash
+}
+
+#[inline]
+pub fn verify_kzg_proof(
+    commitment: &Bytes48,
+    z: &Bytes32,
+    y: &Bytes32,
+    proof: &Bytes48,
+    kzg_settings: &KzgSettings,
+) -> bool {
+    KzgProof::verify_kzg_proof(commitment, z, y, proof, kzg_settings).unwrap_or(false)
+}
+
+#[inline]
+pub fn as_array<const N: usize>(bytes: &[u8]) -> &[u8; N] {
+    bytes.try_into().expect("slice with incorrect length")
+}
+
+#[inline]
+pub fn as_bytes32(bytes: &[u8]) -> &Bytes32 {
+    // SAFETY: `#[repr(C)] Bytes32([u8; 32])`
+    unsafe { &*as_array::<32>(bytes).as_ptr().cast() }
+}
+
+#[inline]
+pub fn as_bytes48(bytes: &[u8]) -> &Bytes48 {
+    // SAFETY: `#[repr(C)] Bytes48([u8; 48])`
+    unsafe { &*as_array::<48>(bytes).as_ptr().cast() }
 }
 
 impl Implementation for EcRecover {

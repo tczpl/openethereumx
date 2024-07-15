@@ -16,10 +16,11 @@
 
 //! Block header.
 
+use core::num;
+use std::ops::Add;
+
 use crate::{
-    bytes::Bytes,
-    hash::{keccak, KECCAK_EMPTY_LIST_RLP, KECCAK_NULL_RLP},
-    BlockNumber,
+    block, bytes::Bytes, hash::{keccak, KECCAK_EMPTY_LIST_RLP, KECCAK_NULL_RLP}, BlockNumber
 };
 use ethereum_types::{Address, Bloom, H256, U256, H64};
 use parity_util_mem::MallocSizeOf;
@@ -95,6 +96,12 @@ pub struct Header {
     
     /// XBlock Shanghai
     withdrawals_hash: Option<H256>,
+
+
+    /// XBlock Dencun
+    blob_gas_used: Option<U256>,
+    excess_blob_gas: Option<U256>,
+    parent_beacon_root: Option<H256>,
 }
 
 impl PartialEq for Header {
@@ -147,6 +154,9 @@ impl Default for Header {
             base_fee_per_gas: None,
 
             withdrawals_hash: None,
+            blob_gas_used: None,
+            excess_blob_gas: None,
+            parent_beacon_root: None,
         }
     }
 }
@@ -243,6 +253,44 @@ impl Header {
         self.base_fee_per_gas
     }
 
+
+    pub fn blob_base_fee(&self) -> u128 {
+        if self.number < 19426587 {
+            return 0
+        }
+        
+        let MIN_BLOB_GASPRICE =  1;
+        let BLOB_GASPRICE_UPDATE_FRACTION = 3338477;
+        let ret = self.fake_exponential(
+            MIN_BLOB_GASPRICE,
+            self.excess_blob_gas.unwrap().as_u64(),
+            BLOB_GASPRICE_UPDATE_FRACTION,
+        );
+        // info!("blob_base_fee number={:?} ret={:?}", self.number, ret);
+        ret
+    }
+
+
+    // copy from https://github.com/bluealloy/revm
+    pub fn fake_exponential(&self, factor: u64, numerator: u64, denominator: u64) -> u128 {
+        assert_ne!(denominator, 0, "attempt to divide by zero");
+        let factor = factor as u128;
+        let numerator = numerator as u128;
+        let denominator = denominator as u128;
+    
+        let mut i = 1;
+        let mut output = 0;
+        let mut numerator_accum = factor * denominator;
+        while numerator_accum > 0 {
+            output += numerator_accum;
+    
+            // Denominator is asserted as not zero at the start of the function.
+            numerator_accum = (numerator_accum * numerator) / (denominator * i);
+            i += 1;
+        }
+        output / denominator
+    }
+
     /// Get the seal field with RLP-decoded values as bytes.
     pub fn decode_seal<'a, T: ::std::iter::FromIterator<&'a [u8]>>(
         &'a self,
@@ -335,11 +383,26 @@ impl Header {
         change_field(&mut self.hash, &mut self.withdrawals_hash, a);
     }
 
+
+    pub fn set_excess_blob_gas(&mut self, a: Option<U256>) {
+        change_field(&mut self.hash, &mut self.excess_blob_gas, a);
+    }
+
+    pub fn set_parent_beacon_root(&mut self, a: Option<H256>) {
+        change_field(&mut self.hash, &mut self.parent_beacon_root, a);
+    }
+
     /// Get the withdrawl_hash field of the header.
     pub fn withdrawl_hash(&self) -> H256 {
         self.withdrawals_hash.unwrap()
     }
 
+    pub fn parent_beacon_root(&self) -> Option<H256>  {
+        self.parent_beacon_root
+    }
+    pub fn excess_blob_gas(&self) -> Option<U256> {
+        self.excess_blob_gas
+    }
 
 
     /// Get the hash of this header (keccak of the RLP with seal).
@@ -389,6 +452,11 @@ impl Header {
             stream_length_without_seal += 1
         }
 
+        // XBlock Dencun
+        if self.blob_gas_used.is_some() {
+            stream_length_without_seal += 3
+        }
+
         if let Seal::With = with_seal {
             s.begin_list(stream_length_without_seal + self.seal.len());
         } else {
@@ -424,6 +492,13 @@ impl Header {
             // info!("stream_rlp parent_hash={} withdrawals_hash={}", self.parent_hash, &self.withdrawals_hash.unwrap());
             s.append(&self.withdrawals_hash.unwrap());
         }
+
+        // XBlock Dencun
+        if self.blob_gas_used.is_some() {
+            s.append(&self.blob_gas_used.unwrap());
+            s.append(&self.excess_blob_gas.unwrap());
+            s.append(&self.parent_beacon_root.unwrap());
+        }
     }
 }
 
@@ -458,16 +533,33 @@ impl Header {
             hash: keccak(r.as_raw()).into(),
             base_fee_per_gas: None,
             withdrawals_hash: None,
+            blob_gas_used: None,
+            excess_blob_gas: None,
+            parent_beacon_root: None,
         };
         if blockheader.number == 18499937 || blockheader.number == 17500000   {
             info!("{} decode_rlp {:?}",  blockheader.number,hex::encode(r.as_raw()));
         }
 
-        if blockheader.number >= 17034870 {
-            // info!("blockheader.number={} r.item_count()={}", blockheader.number(), r.item_count().unwrap());
-            // for i in 0..r.item_count()?  {
-            //     info!("r.item {} {}", i, r.at(i).unwrap());
-            // }
+        // info!("{} has {}  item", blockheader.number,r.item_count()?);
+        if blockheader.number >= 19426587 {
+            for i in 13..r.item_count()? - 5 {
+                blockheader.seal.push(r.at(i)?.as_raw().to_vec())
+            }
+            blockheader.base_fee_per_gas = Some(r.val_at(r.item_count()? - 5)?);
+
+            let the_hash = r.val_at(r.item_count()? - 4)?;
+            blockheader.withdrawals_hash = Some(the_hash);
+            
+            blockheader.blob_gas_used = Some(r.val_at(r.item_count()? - 3)?);
+            
+            blockheader.excess_blob_gas = Some(r.val_at(r.item_count()? - 2)?);
+
+            let the_hash2 = r.val_at(r.item_count()? - 1)?;
+            blockheader.parent_beacon_root = Some(the_hash2);
+            
+        }
+        else if blockheader.number >= 17034870 {
             for i in 13..r.item_count()? - 2 {
                 blockheader.seal.push(r.at(i)?.as_raw().to_vec())
             }

@@ -231,6 +231,14 @@ impl Transaction {
                     .map(Into::into)
                     .collect(),
             ),
+            TypedTransaction::BlobTransaction(tx) => Some(
+                tx.transaction
+                    .access_list
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            ),
             TypedTransaction::Legacy(_) => None,
         };
 
@@ -293,6 +301,15 @@ impl Transaction {
                 Some(tx.access_list.clone().into_iter().map(Into::into).collect())
             }
             TypedTransaction::EIP1559Transaction(tx) => Some(
+                tx.transaction
+                    .access_list
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            ),
+            // TODO 4844 rpc
+            TypedTransaction::BlobTransaction(tx) => Some(
                 tx.transaction
                     .access_list
                     .clone()

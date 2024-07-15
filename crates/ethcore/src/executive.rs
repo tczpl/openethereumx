@@ -15,7 +15,8 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Transaction Execution environment.
-use bytes::{Bytes, BytesRef};
+use bytes::{Bytes, BytesRef, ToPretty};
+use ethcore_miner::pool::client::TransactionType;
 use ethereum_types::{Address, H256, U256, U512};
 use evm::{CallType, FinalizationResult, Finalize};
 use executed::ExecutionError;
@@ -25,14 +26,15 @@ use factory::VmFactory;
 use hash::keccak;
 use machine::EthereumMachine as Machine;
 use state::{Backend as StateBackend, CleanupMode, State, Substate};
-use std::{cmp, convert::TryFrom, sync::Arc};
+use std::{any::Any, cmp, convert::{TryFrom, TryInto}, sync::Arc};
 use trace::{self, Tracer, VMTracer};
 use transaction_ext::Transaction;
 use types::transaction::{Action, SignedTransaction, TypedTransaction};
 use vm::{
-    self, AccessList, ActionParams, ActionValue, CleanDustMode, CreateContractAddress, EnvInfo,
-    ResumeCall, ResumeCreate, ReturnData, Schedule, TrapError,
+    self, AccessList, ActionParams, ActionValue, CleanDustMode, CreateContractAddress, EnvInfo, Ext, ResumeCall, ResumeCreate, ReturnData, Schedule, TrapError
 };
+
+use crate::state::TransientStorage;
 
 #[cfg(any(test, feature = "test-helpers"))]
 /// Precompile that can never be prunned from state trie (0x3, only in tests)
@@ -108,6 +110,7 @@ pub fn into_contract_create_result(
             apply_state: true,
             ..
         }) => {
+            // info!("substate.contracts_created={:?}", &substate.contracts_created);
             substate.contracts_created.push(address.clone());
             vm::ContractCreateResult::Created(address.clone(), gas_left)
         }
@@ -266,11 +269,12 @@ impl<'a> CallCreateExecutive<'a> {
 
         let gas = params.gas;
         let static_flag = parent_static_flag || params.call_type == CallType::StaticCall;
-
+        // 000000000000000000000000000000000000000a
         // if destination is builtin, try to execute it
         let kind = if let Some(builtin) = machine.builtin(&params.code_address, info.number) {
             // Engines aren't supposed to return builtins until activation, but
             // prefer to fail rather than silently break consensus.
+            // info!("address is builtin address={:?}", &params.code_address);
             if !builtin.is_active(info.number) {
                 panic!(
                     "Consensus failure: engine implementation prematurely enabled built-in at {}",
@@ -280,6 +284,7 @@ impl<'a> CallCreateExecutive<'a> {
 
             CallCreateExecutiveKind::CallBuiltin(params)
         } else {
+            // info!("address isnot builtin address={:?}", &params.code_address);
             if params.code.is_some() {
                 let substate = Self::new_substate(&params, schedule);
                 CallCreateExecutiveKind::ExecCall(params, substate)
@@ -429,6 +434,7 @@ impl<'a> CallCreateExecutive<'a> {
         state: &mut State<B>,
         substate: &mut Substate,
         un_substate: Substate,
+        temp_transient_storage: TransientStorage,
     ) {
         match *result {
             Err(vm::Error::OutOfGas)
@@ -453,6 +459,8 @@ impl<'a> CallCreateExecutive<'a> {
                         substate.touched.insert(addr);
                     }
                 }
+                // info!("vm err!");
+                state.transient_storage = temp_transient_storage;
                 state.revert_to_checkpoint();
                 un_substate.access_list.rollback();
             }
@@ -509,6 +517,9 @@ impl<'a> CallCreateExecutive<'a> {
         tracer: &mut T,
         vm_tracer: &mut V,
     ) -> ExecutiveTrapResult<'a, FinalizationResult> {
+        // info!("laile !!!");
+        let temp_transient_storage= state.transient_storage.clone();
+
         match self.kind {
             CallCreateExecutiveKind::Transfer(ref params) => {
                 assert!(!self.is_create);
@@ -585,6 +596,7 @@ impl<'a> CallCreateExecutive<'a> {
                 Ok(inner())
             }
             CallCreateExecutiveKind::ExecCall(params, mut unconfirmed_substate) => {
+                // info!("ExecCall !!! ");
                 assert!(!self.is_create);
 
                 {
@@ -646,12 +658,12 @@ impl<'a> CallCreateExecutive<'a> {
                     }
                 };
 
-                Self::enact_result(&res, state, substate, unconfirmed_substate);
+                Self::enact_result(&res, state, substate, unconfirmed_substate, temp_transient_storage);
                 Ok(res)
             }
             CallCreateExecutiveKind::ExecCreate(params, mut unconfirmed_substate) => {
                 assert!(self.is_create);
-                // info!("CallCreateExecutiveKind::ExecCreate");
+                // info!("CallCreateExecutiveKind::ExecCreate address={:?}", &params.address);
 
                 {
                     let static_flag = self.static_flag;
@@ -692,12 +704,17 @@ impl<'a> CallCreateExecutive<'a> {
                         tracer,
                         vm_tracer,
                     );
+                    // info!("exec.exec");
                     exec.exec(&mut ext).map(|val| val.finalize(ext))
                 };
 
                 let res = match out {
-                    Ok(val) => val,
+                    Ok(val) => {
+                        // info!("res={:?}", val);
+                        val
+                    },
                     Err(TrapError::Call(subparams, resume)) => {
+                        // info!("ResumeCall");
                         self.kind = CallCreateExecutiveKind::ResumeCall(
                             origin_info,
                             resume,
@@ -706,6 +723,7 @@ impl<'a> CallCreateExecutive<'a> {
                         return Err(TrapError::Call(subparams, self));
                     }
                     Err(TrapError::Create(subparams, address, resume)) => {
+                        // info!("ResumeCreate");
                         self.kind = CallCreateExecutiveKind::ResumeCreate(
                             origin_info,
                             resume,
@@ -715,7 +733,7 @@ impl<'a> CallCreateExecutive<'a> {
                     }
                 };
 
-                Self::enact_result(&res, state, substate, unconfirmed_substate);
+                Self::enact_result(&res, state, substate, unconfirmed_substate, temp_transient_storage);
                 Ok(res)
             }
             CallCreateExecutiveKind::ResumeCall(..) | CallCreateExecutiveKind::ResumeCreate(..) => {
@@ -735,6 +753,7 @@ impl<'a> CallCreateExecutive<'a> {
         tracer: &mut T,
         vm_tracer: &mut V,
     ) -> ExecutiveTrapResult<'a, FinalizationResult> {
+        let temp_transient_storage= state.transient_storage.clone();
         match self.kind {
             CallCreateExecutiveKind::ResumeCall(origin_info, resume, mut unconfirmed_substate) => {
                 let out = {
@@ -781,7 +800,7 @@ impl<'a> CallCreateExecutive<'a> {
                     }
                 };
 
-                Self::enact_result(&res, state, substate, unconfirmed_substate);
+                Self::enact_result(&res, state, substate, unconfirmed_substate, temp_transient_storage);
                 Ok(res)
             }
             CallCreateExecutiveKind::ResumeCreate(..) => {
@@ -805,6 +824,7 @@ impl<'a> CallCreateExecutive<'a> {
         tracer: &mut T,
         vm_tracer: &mut V,
     ) -> ExecutiveTrapResult<'a, FinalizationResult> {
+        let temp_transient_storage= state.transient_storage.clone();
         match self.kind {
             CallCreateExecutiveKind::ResumeCreate(
                 origin_info,
@@ -855,7 +875,7 @@ impl<'a> CallCreateExecutive<'a> {
                     }
                 };
 
-                Self::enact_result(&res, state, substate, unconfirmed_substate);
+                Self::enact_result(&res, state, substate, unconfirmed_substate, temp_transient_storage);
                 Ok(res)
             }
             CallCreateExecutiveKind::ResumeCall(..) => {
@@ -1142,9 +1162,18 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     ));
                 }
             }
+            // TODO eip4844
+            TypedTransaction::BlobTransaction(_) => {
+                if !schedule.eip1559 {
+                    return Err(ExecutionError::TransactionMalformed(
+                        "1559 type of transactions not enabled".into(),
+                    ));
+                }
+            }
             TypedTransaction::Legacy(_) => (), //legacy transactions are allways valid
         };
 
+        // info!("transact_with_tracer 1");
         let sender = t.sender();
         let nonce = self.state.nonce(&sender)?;
 
@@ -1155,6 +1184,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
         if schedule.eip2929 {
             access_list.insert_address(sender);
             for (address, builtin) in self.machine.builtins() {
+                // info!("builtins address={:?}", address.to_hex());
                 if builtin.is_active(self.info.number) {
                     access_list.insert_address(*address);
                 }
@@ -1184,6 +1214,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             }
         }
 
+        // info!("transact_with_tracer 2");
         if t.tx().gas < base_gas_required {
             return Err(ExecutionError::NotEnoughBaseGas {
                 required: base_gas_required,
@@ -1191,6 +1222,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             });
         }
 
+        // info!("transact_with_tracer 3");
         if !t.is_unsigned()
             && check_nonce
             && schedule.kill_dust != CleanDustMode::Off
@@ -1201,6 +1233,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         let init_gas = t.tx().gas - base_gas_required;
 
+        // info!("transact_with_tracer 4");
         // validate transaction nonce
         if check_nonce && t.tx().nonce != nonce {
             return Err(ExecutionError::InvalidNonce {
@@ -1209,8 +1242,10 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             });
         }
 
+        // info!("transact_with_tracer 5");
         // validate if transaction fits into given block
         if self.info.gas_used + t.tx().gas > self.info.gas_limit {
+            info!("self.info.gas_used={:?} t.tx().gas={:?} self.info.gas_limit={:?} ", self.info.gas_used, t.tx().gas, self.info.gas_limit);
             return Err(ExecutionError::BlockGasLimitReached {
                 gas_limit: self.info.gas_limit,
                 gas_used: self.info.gas_used,
@@ -1218,6 +1253,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             });
         }
 
+        // info!("transact_with_tracer 6");
         // ensure that the user was willing to at least pay the base fee
         if t.tx().gas_price < self.info.base_fee.unwrap_or_default() && !t.has_zero_gas_price() {
             return Err(ExecutionError::GasPriceLowerThanBaseFee {
@@ -1226,6 +1262,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             });
         }
 
+        // info!("transact_with_tracer 7");
         // verify that transaction max_fee_per_gas is higher or equal to max_priority_fee_per_gas
         if t.tx().gas_price < t.max_priority_fee_per_gas() {
             return Err(ExecutionError::TransactionMalformed(
@@ -1235,11 +1272,20 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         // TODO: we might need bigints here, or at least check overflows.
         let balance = self.state.balance(&sender)?;
-        let gas_cost_effective = t
+        let mut gas_cost_effective = t
             .tx()
             .gas
             .full_mul(t.effective_gas_price(self.info.base_fee));
-        let gas_cost_max = t.tx().gas.full_mul(t.tx().gas_price);
+        let mut gas_cost_max = t.tx().gas.full_mul(t.tx().gas_price);
+        
+        // from revm
+        const GAS_PER_BLOB: u64 = 1 << 17;
+        let total_blob_gas = GAS_PER_BLOB * t.blob_hashes_len() as u64;
+        let data_fee = U256::from(self.info.blob_base_fee).saturating_mul(U256::from(total_blob_gas));
+
+        gas_cost_effective = gas_cost_effective.saturating_add(U512::from(data_fee));
+
+        //  TODO: + blob needed. but we trust the mainnet.
         let needed_balance = U512::from(t.tx().value) + gas_cost_max;
 
         // avoid unaffordable transactions
@@ -1255,7 +1301,10 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         // NOTE: there can be no invalid transactions from this point.
         if !schedule.keep_unsigned_nonce || !t.is_unsigned() {
-            self.state.inc_nonce(&sender)?;
+            let the_hex =sender.to_hex();
+            if the_hex != "fffffffffffffffffffffffffffffffffffffffe" {
+                self.state.inc_nonce(&sender)?;
+            }
         }
         self.state.sub_balance(
             &sender,
@@ -1286,6 +1335,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     call_type: CallType::None,
                     params_type: vm::ParamsType::Embedded,
                     access_list: access_list,
+                    blob_hashes: t.blob_hashes(),
                 };
                 let res = self.create(params, &mut substate, &mut tracer, &mut vm_tracer);
                 let out = match &res {
@@ -1310,6 +1360,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     call_type: CallType::Call,
                     params_type: vm::ParamsType::Separate,
                     access_list: access_list,
+                    blob_hashes: t.blob_hashes(),
                 };
                 let res = self.call(params, &mut substate, &mut tracer, &mut vm_tracer);
                 let out = match &res {
@@ -1445,6 +1496,9 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
         };
 
         let result;
+        let address2 = params.address.clone();
+        // info!("want? address={:?}", address2);
+        substate.contracts_created.push(address2);
         if stack_depth==0 && self.info.number > 17034870 && data_len> 49152 {
             result = Err(vm::Error::OutOfGas);
         } else {
@@ -1460,6 +1514,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             )
             .consume(self.state, substate, tracer, vm_tracer);    
         }
+        // info!("created!!! address={:?}", address2);
 
         match result {
             Ok(ref val) if val.apply_state => {
@@ -1594,7 +1649,20 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         // perform suicides
         for address in &substate.suicides {
-            self.state.kill_account(address);
+            // XBlock Dencun
+            // TODO : 0x3cdc41c7fec45349a3d9c07075a767d7eedf16a63db40160690aaab018f609e0 not have contracts_created
+            // info!("need kill address={:} contracts_created={:?}", &address, &substate.contracts_created);
+            if self.info.number >= 19426587 {
+                for address2 in &substate.contracts_created {
+                    if address == address2 {
+                        // info!("kill address");
+                        self.state.kill_account(address);
+                        break;
+                    }
+                }
+            } else {
+                self.state.kill_account(address);
+            }
         }
 
         // perform garbage-collection

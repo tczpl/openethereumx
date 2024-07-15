@@ -74,6 +74,10 @@ pub trait Ext {
     /// Stores a value for given key.
     fn set_storage(&mut self, key: H256, value: H256) -> Result<()>;
 
+    // XBlock Dencun
+    fn get_transient_storage(&self, key: &H256) -> Result<H256>;
+    fn set_transient_storage(&mut self, key: H256, value: H256) -> Result<()>;
+
     /// Determine whether an account exists.
     fn exists(&self, address: &Address) -> Result<bool>;
 
@@ -140,6 +144,7 @@ pub trait Ext {
     /// Should be called when contract commits suicide.
     /// Address to which funds should be refunded.
     fn suicide(&mut self, refund_address: &Address) -> Result<()>;
+    fn suicide2(&mut self, refund_address: &Address) -> Result<()>;
 
     /// Returns schedule.
     fn schedule(&self) -> &Schedule;

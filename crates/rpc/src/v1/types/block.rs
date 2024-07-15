@@ -94,6 +94,13 @@ pub struct Block {
     pub withdrawals_hash: Option<H256>,
 
     pub withdrawals: Option<Vec<Withdrawal>>,
+
+
+    /// XBlock Dencun
+    pub blob_gas_used: Option<U256>,
+    pub excess_blob_gas: Option<U256>,
+    pub parent_beacon_root: Option<H256>,
+
 }
 
 /// Block header representation.
@@ -140,6 +147,10 @@ pub struct Header {
     pub size: Option<U256>,
 
     pub withdrawals_hash: Option<H256>,
+    
+    pub blob_gas_used: Option<U256>,
+    pub excess_blob_gas: Option<U256>,
+    pub parent_beacon_root: Option<H256>,
 }
 
 impl Header {
@@ -178,7 +189,28 @@ impl Header {
                 } else {
                     None
                 }
-            }
+            },
+            blob_gas_used: {
+                if h.number() >= 19426587 {
+                    Some(h.blob_gas_used())
+                } else {
+                    None
+                }
+            },
+            excess_blob_gas: {
+                if h.number() >= 19426587 {
+                    Some(h.excess_blob_gas())
+                } else {
+                    None
+                }
+            },
+            parent_beacon_root: {
+                if h.number() >= 19426587 {
+                    Some(h.parent_beacon_root())
+                } else {
+                    None
+                }
+            },
 		}
     }
 }

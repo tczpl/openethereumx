@@ -156,6 +156,12 @@ enum_with_from_u8! {
         #[doc = "get the block's base fee"]
         BASEFEE = 0x48,
 
+        // XBlock Dencun
+        #[doc = "get the block's base fee"]
+        BLOBHASH = 0x49,
+        #[doc = "get the block's base fee"]
+        BLOBBASEFEE = 0x4a,
+
         #[doc = "remove item from stack"]
         POP = 0x50,
         #[doc = "load word from memory"]
@@ -180,6 +186,14 @@ enum_with_from_u8! {
         GAS = 0x5a,
         #[doc = "set a potential jump destination"]
         JUMPDEST = 0x5b,
+
+        // XBlock Dencun
+        #[doc = "get the block's base fee"]
+        TLOAD     = 0x5c,
+        #[doc = "get the block's base fee"]
+        TSTORE    = 0x5d,
+        #[doc = "get the block's base fee"]
+        MCOPY     = 0x5e,       
 
         // XBlock Shanghai
         #[doc = "place 0 on stack"]
@@ -326,12 +340,12 @@ enum_with_from_u8! {
         #[doc = "Makes a log entry, 4 topics."]
         LOG4 = 0xa4,
 
-        #[doc = "Marks the entry point to a subroutine."]
-        BEGINSUB = 0x5c,
-        #[doc = "Returns from a subroutine."]
-        RETURNSUB = 0x5d,
-        #[doc = "Jumps to a defined BEGINSUB subroutine."]
-        JUMPSUB = 0x5e,
+        // #[doc = "Marks the entry point to a subroutine."]
+        // BEGINSUB = 0x5c,
+        // #[doc = "Returns from a subroutine."]
+        // RETURNSUB = 0x5d,
+        // #[doc = "Jumps to a defined BEGINSUB subroutine."]
+        // JUMPSUB = 0x5e,
 
         #[doc = "create a new account with associated code"]
         CREATE = 0xf0,
@@ -535,6 +549,14 @@ lazy_static! {
         arr[MSIZE as usize] = Some(InstructionInfo::new("MSIZE", 0, 1, GasPriceTier::Base));
         arr[GAS as usize] = Some(InstructionInfo::new("GAS", 0, 1, GasPriceTier::Base));
         arr[JUMPDEST as usize] = Some(InstructionInfo::new("JUMPDEST", 0, 0, GasPriceTier::Special));
+        // XBlock Dencun TODO
+        arr[TLOAD as usize] = Some(InstructionInfo::new("TLOAD", 1, 1, GasPriceTier::Special));
+        arr[TSTORE as usize] = Some(InstructionInfo::new("TSTORE", 2, 0, GasPriceTier::Special));
+        arr[MCOPY as usize] = Some(InstructionInfo::new("MCOPY", 3, 0, GasPriceTier::VeryLow));
+        
+        arr[BLOBHASH as usize] = Some(InstructionInfo::new("BLOBHASH", 1, 1, GasPriceTier::VeryLow));
+        arr[BLOBBASEFEE as usize] = Some(InstructionInfo::new("BLOBBASEFEE", 0, 1, GasPriceTier::Base));
+
         // XBlock Shanghai
         arr[PUSH0 as usize] = Some(InstructionInfo::new("PUSH0", 0, 1, GasPriceTier::Base));
         arr[PUSH1 as usize] = Some(InstructionInfo::new("PUSH1", 0, 1, GasPriceTier::VeryLow));
@@ -606,9 +628,9 @@ lazy_static! {
         arr[LOG2 as usize] = Some(InstructionInfo::new("LOG2", 4, 0, GasPriceTier::Special));
         arr[LOG3 as usize] = Some(InstructionInfo::new("LOG3", 5, 0, GasPriceTier::Special));
         arr[LOG4 as usize] = Some(InstructionInfo::new("LOG4", 6, 0, GasPriceTier::Special));
-        arr[BEGINSUB as usize] = Some(InstructionInfo::new("BEGINSUB", 0, 0, GasPriceTier::Base));
-        arr[JUMPSUB as usize] = Some(InstructionInfo::new("JUMPSUB", 1, 0, GasPriceTier::High));
-        arr[RETURNSUB as usize] = Some(InstructionInfo::new("RETURNSUB", 0, 0, GasPriceTier::Low));
+        // arr[BEGINSUB as usize] = Some(InstructionInfo::new("BEGINSUB", 0, 0, GasPriceTier::Base));
+        // arr[JUMPSUB as usize] = Some(InstructionInfo::new("JUMPSUB", 1, 0, GasPriceTier::High));
+        // arr[RETURNSUB as usize] = Some(InstructionInfo::new("RETURNSUB", 0, 0, GasPriceTier::Low));
         arr[CREATE as usize] = Some(InstructionInfo::new("CREATE", 3, 1, GasPriceTier::Special));
         arr[CALL as usize] = Some(InstructionInfo::new("CALL", 7, 1, GasPriceTier::Special));
         arr[CALLCODE as usize] = Some(InstructionInfo::new("CALLCODE", 7, 1, GasPriceTier::Special));

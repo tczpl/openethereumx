@@ -15,6 +15,8 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Executed transaction.
+use ethereum_types::H256;
+
 use crate::{bytes::Bytes, hash::Address, uint::Uint};
 
 /// Executed transaction.
@@ -38,6 +40,8 @@ pub struct Transaction {
     pub origin: Address,
     /// Sent value.
     pub value: Uint,
+
+    pub blob_hashes: Vec<H256>,
 }
 
 #[cfg(test)]

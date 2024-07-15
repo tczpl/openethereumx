@@ -19,6 +19,7 @@
 //! Unconfirmed sub-states are managed with `checkpoint`s which may be canonicalized
 //! or rolled back.
 
+use db::Cache;
 use hash::{KECCAK_EMPTY, KECCAK_NULL_RLP};
 use std::{
     cell::{RefCell, RefMut},
@@ -45,8 +46,8 @@ use types::{
 
 use vm::EnvInfo;
 
-use bytes::Bytes;
-use ethereum_types::{Address, H256, U256};
+use bytes::{Bytes, ToPretty};
+use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hash_db::{AsHashDB, HashDB};
 use keccak_hasher::KeccakHasher;
 use kvdb::DBValue;
@@ -307,6 +308,14 @@ pub fn prove_transaction_virtual<H: AsHashDB<KeccakHasher, DBValue> + Send + Syn
 /// checkpoint can be discarded with `discard_checkpoint`. All of the orignal
 /// backed-up values are moved into a parent checkpoint (if any).
 ///
+/// 
+pub type TransientStorage = HashMap<(Address, H256), H256>;
+pub struct TransientStorageChange {
+    address: Address,
+    key: H256,
+    had_value: H256,
+}
+
 pub struct State<B> {
     db: B,
     root: H256,
@@ -315,6 +324,8 @@ pub struct State<B> {
     checkpoints: RefCell<Vec<HashMap<Address, Option<AccountEntry>>>>,
     account_start_nonce: U256,
     factories: Factories,
+    pub transient_storage: TransientStorage,
+    // transient_storage_changes: Vec<TransientStorageChange>,
 }
 
 #[derive(Copy, Clone)]
@@ -385,6 +396,8 @@ impl<B: Backend> State<B> {
             checkpoints: RefCell::new(Vec::new()),
             account_start_nonce: account_start_nonce,
             factories: factories,
+            transient_storage: TransientStorage::new(),
+            // transient_storage_changes: Vec::<TransientStorageChange>::new(),
         }
     }
 
@@ -406,9 +419,17 @@ impl<B: Backend> State<B> {
             checkpoints: RefCell::new(Vec::new()),
             account_start_nonce: account_start_nonce,
             factories: factories,
+            transient_storage: TransientStorage::new(),
+            // transient_storage_changes: Vec::<TransientStorageChange>::new(),
         };
 
         Ok(state)
+    }
+
+
+    pub fn clean_transient_storage(&mut self) {
+        self.transient_storage = TransientStorage::new();
+        // self.transient_storage_changes =  Vec::<TransientStorageChange>::new();
     }
 
     /// Get a VM factory that can execute on this state.
@@ -443,6 +464,11 @@ impl<B: Backend> State<B> {
 
     /// Revert to the last checkpoint and discard it.
     pub fn revert_to_checkpoint(&mut self) {
+        // TODO  is here
+        // info!("revert_to_checkpoint");
+        // for i in &self.transient_storage_changes {
+        //     info!("{} {}", i.address, i.key);
+        // }
         if let Some(mut checkpoint) = self.checkpoints.get_mut().pop() {
             for (k, v) in checkpoint.drain() {
                 match v {
@@ -533,6 +559,7 @@ impl<B: Backend> State<B> {
                 rlp::DecoderError::Custom("Nonce overflow".into()),
             )));
         }
+        // XBlock TODO new contracts 0x3cdc41c7fec45349a3d9c07075a767d7eedf16a63db40160690aaab018f609e0
         self.insert_cache(
             contract,
             AccountEntry::new_dirty(Some(Account::new_contract(
@@ -878,6 +905,48 @@ impl<B: Backend> State<B> {
         Ok(())
     }
 
+
+    // TODO XBlock Dencun
+    // from revm
+    pub fn set_transient_storage(&mut self, a: &Address, key: H256, value: H256) -> TrieResult<()> {
+        self.transient_storage.insert((a.clone(), key), value);
+
+        // let had_value = if value == H256::default() {
+        //     self.transient_storage.remove(&(a.clone(), key))
+        // } else {
+        //     // insert values
+        //     let previous_value = self
+        //         .transient_storage
+        //         .insert((a.clone(), key), value)
+        //         .unwrap_or_default();
+
+        //     // check if previous value is same
+        //     if previous_value != value {
+        //         // if it is different, insert previous values inside journal.
+        //         Some(previous_value)
+        //     } else {
+        //         None
+        //     }
+        // };
+
+        // if let Some(had_value) = had_value {
+        //     self.transient_storage_changes.push(TransientStorageChange{
+        //         address: a.clone(),
+        //         key: key.clone(),
+        //         had_value: had_value.clone(),
+        //     });
+        // }
+        Ok(())
+    }
+
+    pub fn get_transient_storage(&self, address: &Address, key: &H256) -> TrieResult<H256> {
+        let value =  self.transient_storage.get(&(address.clone(), key.clone()));
+        match value {
+            Some(value) => Ok(value.clone()),
+            None =>  Ok(H256::default()),
+        }
+    }
+
     /// Initialise the code of account `a` so that it is `code`.
     /// NOTE: Account should have been created with `new_contract`.
     pub fn init_code(&mut self, a: &Address, code: Bytes) -> TrieResult<()> {
@@ -935,6 +1004,8 @@ impl<B: Backend> State<B> {
         T: trace::Tracer,
         V: trace::VMTracer,
     {
+        // info!("apply_with_tracing");
+        // info!("tx={:?} begin_state_root={}", t.hash(),  self.root().clone());
         let options = TransactOptions::new(tracer, vm_tracer);
         let e = self.execute(env_info, machine, t, options, false)?;
         let params = machine.params();
@@ -951,6 +1022,7 @@ impl<B: Backend> State<B> {
                 TransactionOutcome::Unknown
             }
         } else {
+            info!("else!!! {}", no_intermediate_commits);
             self.commit()?;
             TransactionOutcome::StateRoot(self.root().clone())
         };
@@ -965,8 +1037,9 @@ impl<B: Backend> State<B> {
             LegacyReceipt::new(outcome, e.cumulative_gas_used, e.logs),
         );
         trace!(target: "state", "Transaction receipt: {:?}", receipt);
+        self.clean_transient_storage();
         // info!("Transaction receipt: {:?}", receipt);
-
+        // info!("tx={:?} end_state_root={}", t.hash(),  self.root().clone());
         Ok(ApplyOutcome {
             receipt,
             output,
@@ -1080,7 +1153,7 @@ impl<B: Backend> State<B> {
                 a.state = AccountState::Committed;
                 match a.account {
                     Some(ref mut account) => {
-                        info!("state tx={:?} addr={:?} balance={:?} nonce={:?}", txhash,  address, &account.balance(), &account.nonce());
+                        // info!("state tx={:?} addr={:?} balance={:?} nonce={:?}", txhash,  address, &account.balance(), &account.nonce());
                         trie.insert(address.as_bytes(), &account.rlp())?;
                     }
                     None => {
@@ -1623,6 +1696,15 @@ impl Clone for State<StateDB> {
             cache
         };
 
+        // let mut transient_storage_changes_cloned = Vec::<TransientStorageChange>::new();
+        // for item  in self.transient_storage_changes.iter(){
+        //     transient_storage_changes_cloned.push(TransientStorageChange {
+        //         address: item.address,
+        //         key: item.key,
+        //         had_value: item.had_value,
+        //     });
+        // }
+
         State {
             db: self.db.boxed_clone(),
             root: self.root.clone(),
@@ -1630,6 +1712,8 @@ impl Clone for State<StateDB> {
             checkpoints: RefCell::new(Vec::new()),
             account_start_nonce: self.account_start_nonce.clone(),
             factories: self.factories.clone(),
+            transient_storage: self.transient_storage.clone(),
+            // transient_storage_changes: transient_storage_changes_cloned,
         }
     }
 }

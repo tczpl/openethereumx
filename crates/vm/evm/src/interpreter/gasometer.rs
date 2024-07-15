@@ -133,6 +133,7 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
             }
         };
 
+        // TODO dynamic gas?
         let cost = match instruction {
             instructions::JUMPDEST => Request::Gas(Gas::from(1)),
             instructions::SSTORE => {
@@ -173,6 +174,16 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 };
                 Request::Gas(gas.into())
             }
+
+            instructions::TSTORE => {
+                let gas =  schedule.warm_storage_read_cost;
+                Request::Gas(gas.into())
+            }
+            instructions::TLOAD => {
+                let gas =  schedule.warm_storage_read_cost;
+                Request::Gas(gas.into())
+            }
+
             instructions::BALANCE => {
                 let address = u256_to_address(stack.peek(0));
                 Request::Gas(accessed_addresses_gas(&address, schedule.balance_gas))
@@ -225,7 +236,7 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 )));
                 Request::GasMem(gas, mem_needed(stack.peek(0), stack.peek(1))?)
             }
-            instructions::CALLDATACOPY | instructions::CODECOPY | instructions::RETURNDATACOPY => {
+            instructions::CALLDATACOPY | instructions::CODECOPY | instructions::RETURNDATACOPY | instructions::MCOPY => {
                 Request::GasMemCopy(
                     default_gas,
                     mem_needed(stack.peek(0), stack.peek(2))?,
@@ -296,6 +307,7 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                     mem_needed(stack.peek(2), stack.peek(3))?,
                 );
                 let requested = *stack.peek(0);
+                // log::info!("gas gas={:?} requested={:?}", gas, requested);
 
                 Request::GasMemProvide(gas, mem, Some(requested))
             }

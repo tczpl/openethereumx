@@ -156,6 +156,20 @@ impl Header {
     pub fn withdrawals_hash(&self) -> H256 {
         self.view().withdrawals_hash()
     }
+
+
+    pub fn blob_gas_used(&self) -> U256 {
+        self.view().blob_gas_used()
+    }
+
+    pub fn excess_blob_gas(&self) -> U256 {
+        self.view().excess_blob_gas()
+    }
+
+    pub fn parent_beacon_root(&self) -> H256 {
+        self.view().parent_beacon_root()
+    }
+
 }
 
 /// Owning block body view.

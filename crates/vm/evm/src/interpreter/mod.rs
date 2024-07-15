@@ -23,11 +23,11 @@ mod memory;
 mod shared_cache;
 mod stack;
 
-use bytes::Bytes;
+use bytes::{Bytes, ToPretty};
 use ethereum_types::{Address, BigEndianHash, H256, U256};
 use hash::keccak;
 use num_bigint::BigUint;
-use std::{cmp, marker::PhantomData, mem, sync::Arc};
+use std::{cmp, default, marker::PhantomData, mem, str::FromStr, sync::Arc};
 
 use vm::{
     self, ActionParams, ActionValue, CallType, ContractCreateResult, CreateContractAddress,
@@ -147,6 +147,8 @@ struct InterpreterParams {
     pub call_type: CallType,
     /// Param types encoding
     pub params_type: ParamsType,
+    
+    pub blob_hashes: Vec<H256>
 }
 
 impl From<ActionParams> for InterpreterParams {
@@ -163,6 +165,7 @@ impl From<ActionParams> for InterpreterParams {
             data: params.data,
             call_type: params.call_type,
             params_type: params.params_type,
+            blob_hashes: params.blob_hashes,
         }
     }
 }
@@ -593,8 +596,10 @@ impl<Cost: CostType> Interpreter<Cost> {
             || (instruction == SELFBALANCE && !schedule.have_selfbalance)
             || (instruction == BASEFEE && !schedule.eip3198)
             || (instruction == PUSH0 && ext.env_info().number < 17034871)
-            || ((instruction == BEGINSUB || instruction == JUMPSUB || instruction == RETURNSUB)
-                && !schedule.have_subs)
+            // || ((instruction == BEGINSUB || instruction == JUMPSUB || instruction == RETURNSUB)
+            //     && !schedule.have_subs)
+            || ((instruction == TLOAD || instruction == TSTORE || instruction == BLOBBASEFEE || instruction==BLOBHASH || instruction==MCOPY)
+                 && ext.env_info().number < 19426587)
         {
             return Err(vm::Error::BadInstruction {
                 instruction: instruction as u8,
@@ -654,6 +659,39 @@ impl<Cost: CostType> Interpreter<Cost> {
     ) -> vm::Result<InstructionResult<Cost>> {
         // log::info!("exec_instruction gas={:?} instruction={:?}", gas, instruction);
         
+        //log::info!("address={}", self.params.address.to_hex());
+        // let target: &str = "";
+        // if self.params.address.to_hex() == "a8cb082a5a689e0d594d7da1e2d72a3d63adc1bd"  {
+        //     log::info!("instr={:?} gas={:?} ", &instruction, gas);
+        // }
+
+        // wocao!!!
+        // let mut needed = false;
+        // // if self.params.gas_price.eq(&U256::from(19324319946 as u64)) {
+        // if instruction == instructions::SSTORE  {
+           
+        //     let mut temp_hex = Vec::<H256>::new();
+        //     let temp = self.stack.stack.clone();
+        //     for i in temp {
+        //         let sth: H256 = BigEndianHash::from_uint(&i);
+        //         temp_hex.push(sth)
+        //     }
+
+        //     log::info!("instr={:?} gas={:?} stack={:?} ", &instruction, gas, temp_hex);
+
+        //     needed = true;
+
+        // }
+
+
+        // if instruction == instructions::SUICIDE || instruction == instructions::MCOPY || instruction == instructions::TLOAD || instruction == instructions::TSTORE || instruction == instructions::BLOBBASEFEE || instruction == instructions::BLOBHASH {
+        //     log::info!("new !!! {:?}", &instruction);
+        //     // panic!(1);
+        // }
+        // if instruction == instructions::MCOPY {
+        //     log::info!("new !!! {:?}", &instruction);
+        //     panic!(1);
+        // }
         match instruction {
             instructions::JUMP => {
                 let jump = self.stack.pop_back();
@@ -669,29 +707,59 @@ impl<Cost: CostType> Interpreter<Cost> {
             instructions::JUMPDEST => {
                 // ignore
             }
-            instructions::BEGINSUB => {
-                return Err(vm::Error::InvalidSubEntry);
-            }
-            instructions::JUMPSUB => {
-                if self.return_stack.len() >= MAX_SUB_STACK_SIZE {
-                    return Err(vm::Error::OutOfSubStack {
-                        wanted: 1,
-                        limit: MAX_SUB_STACK_SIZE,
-                    });
-                }
-                let sub_destination = self.stack.pop_back();
-                return Ok(InstructionResult::JumpToSubroutine(sub_destination));
-            }
-            instructions::RETURNSUB => {
-                if let Some(pos) = self.return_stack.pop() {
-                    return Ok(InstructionResult::ReturnFromSubroutine(pos));
+            instructions::BLOBHASH => {
+                let index = self.stack.pop_back();
+                // log::info!("blocknum={:?}", ext.env_info().number);
+                // log::info!("BLOBHASH {:?} {:?}", index, self.params.blob_hashes);
+                if index.as_usize() <  self.params.blob_hashes.len() {
+                    let blob_hash = self.params.blob_hashes[index.as_usize()];
+                    // log::info!("push blob_hash={:?}", &blob_hash);
+                    self.stack.push(blob_hash.into_uint());
                 } else {
-                    return Err(vm::Error::SubStackUnderflow {
-                        wanted: 1,
-                        on_stack: 0,
-                    });
+                    self.stack.push(U256::zero());
                 }
             }
+            instructions::BLOBBASEFEE => {
+                self.stack.push(U256::from(ext.env_info().blob_base_fee));
+            }
+            instructions::TSTORE => {
+                let key = BigEndianHash::from_uint(&self.stack.pop_back());
+                let val = self.stack.pop_back();
+                // log::info!("TSTORE blocknum={:?} address={:?} key={:?} val={:?}", ext.env_info().number, self.params.code_address,  key, val);
+                ext.set_transient_storage(key, BigEndianHash::from_uint(&val))?;
+                // ignore
+            }
+            instructions::TLOAD => {
+                let key = BigEndianHash::from_uint(&self.stack.pop_back());
+                // log::info!("TLOAD blocknum={:?} address={:?} key={:?} ", ext.env_info().number, self.params.code_address, key);
+                let word = ext.get_transient_storage(&key)?.into_uint();
+                // log::info!("TLOAD ret={:?}", &word);
+                self.stack.push(word);
+                // ignore
+            }
+            // instructions::BEGINSUB => {
+            //     return Err(vm::Error::InvalidSubEntry);
+            // }
+            // instructions::JUMPSUB => {
+            //     if self.return_stack.len() >= MAX_SUB_STACK_SIZE {
+            //         return Err(vm::Error::OutOfSubStack {
+            //             wanted: 1,
+            //             limit: MAX_SUB_STACK_SIZE,
+            //         });
+            //     }
+            //     let sub_destination = self.stack.pop_back();
+            //     return Ok(InstructionResult::JumpToSubroutine(sub_destination));
+            // }
+            // instructions::RETURNSUB => {
+            //     if let Some(pos) = self.return_stack.pop() {
+            //         return Ok(InstructionResult::ReturnFromSubroutine(pos));
+            //     } else {
+            //         return Err(vm::Error::SubStackUnderflow {
+            //             wanted: 1,
+            //             on_stack: 0,
+            //         });
+            //     }
+            // }
             instructions::CREATE | instructions::CREATE2 => {
                 let endowment = self.stack.pop_back();
                 let init_off = self.stack.pop_back();
@@ -865,6 +933,11 @@ impl<Cost: CostType> Interpreter<Cost> {
                     )
                 };
 
+                // if needed {
+                //     let input = self.mem.read_slice(in_off, in_size);
+                //     log::info!("instruction={:?} call_gas={:?} sender_address={:?}  receive_address={:?} code_address={:?} input={:?} ", &instruction, &call_gas, sender_address, receive_address, code_address, input);
+                //     log::info!("call_result={:?}", call_result);
+                // }
                 self.resume_output_range = Some((out_off, out_size));
 
                 return match call_result {
@@ -925,9 +998,15 @@ impl<Cost: CostType> Interpreter<Cost> {
                 return Ok(InstructionResult::StopExecution);
             }
             instructions::SUICIDE => {
+                // log::info!("SUICIDE!");
                 let address = u256_to_address(&self.stack.pop_back());
                 ext.al_insert_address(address.clone());
-                ext.suicide(&address)?;
+                if ext.env_info().number < 19426587 {
+                    ext.suicide(&address)?;
+                }
+                else {
+                    ext.suicide2(&address)?;
+                }
                 return Ok(InstructionResult::StopExecution);
             }
             instructions::LOG0
@@ -1004,6 +1083,15 @@ impl<Cost: CostType> Interpreter<Cost> {
                 let byte = self.stack.pop_back();
                 self.mem.write_byte(offset, byte);
             }
+            instructions::MCOPY => {
+                let dst = self.stack.pop_back();
+                let src = self.stack.pop_back();
+                let length = self.stack.pop_back();
+                let word = self.mem.read_slice(src, length).to_vec();
+                self.mem.write_slice(dst, &word);
+                // ignore
+            }
+
             instructions::MSIZE => {
                 self.stack.push(U256::from(self.mem.size()));
             }
@@ -1040,6 +1128,7 @@ impl<Cost: CostType> Interpreter<Cost> {
                         ext.add_sstore_refund(sstore_clears_schedule);
                     }
                 }
+                // log::info!("SSTORE address={:?} k={:?} v={:?}", self.params.address.clone(), &key, &val);
                 ext.set_storage(key, BigEndianHash::from_uint(&val))?;
                 ext.al_insert_storage_key(self.params.address, key);
             }
