@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
+use crate::state::TransientStorageChange;
+
 use super::test_common::*;
 use bytes::Bytes;
 use ethereum_types::BigEndianHash;
@@ -323,7 +325,8 @@ pub fn json_executive_test<H: FnMut(&str, HookType)>(
         let mut tracer = NoopTracer;
         let mut vm_tracer = NoopVMTracer;
         let vm_factory = state.vm_factory();
-        let origin_info = OriginInfo::from(&params);
+        let temp_transient_storage = TransientStorage::new();
+        let origin_info = OriginInfo::from(&params,  &temp_transient_storage);
 
         // execute
         let (res, callcreates) = {

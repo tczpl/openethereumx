@@ -28,6 +28,8 @@ use vm::{
     CreateContractAddress, EnvInfo, Ext, MessageCallResult, ReturnData, Schedule, TrapKind,
 };
 
+use crate::state::TransientStorage;
+
 /// Policy for handling output data on `RETURN` opcode.
 pub enum OutputPolicy {
     /// Return reference to fixed sized output.
@@ -39,16 +41,17 @@ pub enum OutputPolicy {
 
 /// Transaction properties that externalities need to know about.
 pub struct OriginInfo {
-    address: Address,
-    origin: Address,
-    gas_price: U256,
+    pub address: Address,
+    pub origin: Address,
+    pub gas_price: U256,
+    pub transient_storage: TransientStorage,
     value: U256,
     blob_hashes: Vec<H256>,
 }
 
 impl OriginInfo {
     /// Populates origin info from action params.
-    pub fn from(params: &ActionParams) -> Self {
+    pub fn from(params: &ActionParams, transient_storage: &TransientStorage) -> Self {
         OriginInfo {
             address: params.address.clone(),
             origin: params.origin.clone(),
@@ -57,6 +60,7 @@ impl OriginInfo {
                 ActionValue::Transfer(val) | ActionValue::Apparent(val) => val,
             },
             blob_hashes: params.blob_hashes.clone(),
+            transient_storage: transient_storage.clone(),
         }
     }
 }
