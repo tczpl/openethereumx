@@ -236,10 +236,21 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 )));
                 Request::GasMem(gas, mem_needed(stack.peek(0), stack.peek(1))?)
             }
-            instructions::CALLDATACOPY | instructions::CODECOPY | instructions::RETURNDATACOPY | instructions::MCOPY => {
+            instructions::CALLDATACOPY | instructions::CODECOPY | instructions::RETURNDATACOPY => {
                 Request::GasMemCopy(
                     default_gas,
                     mem_needed(stack.peek(0), stack.peek(2))?,
+                    Gas::from_u256(*stack.peek(2))?,
+                )
+            }
+            instructions::MCOPY => {
+                let mem = cmp::max(
+                    mem_needed(stack.peek(0), stack.peek(2))?,
+                    mem_needed(stack.peek(1), stack.peek(2))?,
+                );
+                Request::GasMemCopy(
+                    default_gas,
+                    mem,
                     Gas::from_u256(*stack.peek(2))?,
                 )
             }

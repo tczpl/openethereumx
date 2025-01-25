@@ -368,6 +368,7 @@ impl<Cost: CostType> Interpreter<Cost> {
             None => {
                 let opcode = self.reader.code[self.reader.position];
                 let instruction = Instruction::from_u8(opcode);
+                // println!("instruction={:?}", &instruction);
                 self.reader.position += 1;
 
                 // TODO: make compile-time removable if too much of a performance hit.
@@ -661,7 +662,7 @@ impl<Cost: CostType> Interpreter<Cost> {
         
         //log::info!("address={}", self.params.address.to_hex());
         // let target: &str = "";
-        // if self.params.address.to_hex() == "a8cb082a5a689e0d594d7da1e2d72a3d63adc1bd"  {
+        // if self.params.address.to_hex() == "5b360ab18d2b9de60006307ea60cb316b3095284"  {
         //     log::info!("instr={:?} gas={:?} ", &instruction, gas);
         // }
 
@@ -1087,8 +1088,41 @@ impl<Cost: CostType> Interpreter<Cost> {
                 let dst = self.stack.pop_back();
                 let src = self.stack.pop_back();
                 let length = self.stack.pop_back();
+
+                // println!("MCOPY dst={} src={} length={} size={}", dst, src, length, self.mem.size());
+
+                // if src.saturating_add(length) > self.mem.size().as_u256() {
+                //     println!("err!!!");
+                //     return Err(vm::Error::OutOfBounds);
+                // }
+
+                // let word = self.mem.read_slice(src, length).to_vec();
+                
+                // let mut target = false;
+                // let mut length2 = length;
+                // if src+length > self.mem.size().as_u256() {
+                //     length2 = self.mem.size().as_u256()-src;
+                //     target = true;
+                //     // println!("MCOPY before={:?}", self.mem.as_slice());
+                //     println!("target MCOPY src={} length2={} size={}", src, length2, self.mem.size());
+                // }
                 let word = self.mem.read_slice(src, length).to_vec();
+
+                // if word.len() < length.as_usize() {
+                //     word.resize(length.as_usize(), 0);
+                // }
+
+                // if dst.as_usize()+length.as_usize() > self.mem.size() {
+                //     self.mem.resize(dst.as_usize()+length.as_usize(), 0);
+                // }
+                // println!("before write size={}", self.mem.size());
+
                 self.mem.write_slice(dst, &word);
+
+                // println!("after write size={}", self.mem.size());
+                // if target {
+                //     println!("MCOPY after={:?}", self.mem.as_slice());
+                // }
                 // ignore
             }
 

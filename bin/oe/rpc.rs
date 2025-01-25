@@ -225,6 +225,7 @@ pub fn new_http<D: rpc_apis::Dependencies>(
     conf: HttpConfiguration,
     deps: &Dependencies<D>,
 ) -> Result<Option<HttpServer>, String> {
+    return Ok(None);
     if !conf.enabled {
         return Ok(None);
     }

@@ -537,9 +537,9 @@ impl Header {
             excess_blob_gas: None,
             parent_beacon_root: None,
         };
-        if blockheader.number == 18499937 || blockheader.number == 17500000   {
-            info!("{} decode_rlp {:?}",  blockheader.number,hex::encode(r.as_raw()));
-        }
+        // if blockheader.number == 18499937 || blockheader.number == 17500000   {
+        //     info!("{} decode_rlp {:?}",  blockheader.number,hex::encode(r.as_raw()));
+        // }
 
         // info!("{} has {}  item", blockheader.number,r.item_count()?);
         if blockheader.number >= 19426587 {

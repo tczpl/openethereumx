@@ -83,6 +83,9 @@ pub struct Transaction {
     /// miner bribe
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_priority_fee_per_gas: Option<U256>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blob_hashes: Option<Vec<H256>>,
 }
 
 
@@ -245,6 +248,8 @@ impl Transaction {
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             if let TypedTransaction::EIP1559Transaction(tx) = t.as_unsigned() {
                 (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
+            } else if let TypedTransaction::BlobTransaction(tx) = t.as_unsigned() {
+                (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
             } else {
                 (None, None)
             };
@@ -254,6 +259,13 @@ impl Transaction {
         } else {
             None
         };
+        
+        let blob_hashes = if t.tx_type() == TypedTxId::BlobTransaction {
+            Some(t.blob_hashes())
+        } else {
+            None
+        };
+
 
         Transaction {
             hash: t.hash(),
@@ -288,6 +300,7 @@ impl Transaction {
             transaction_type: t.signed.tx_type().to_U64_option_id(),
             access_list,
             max_priority_fee_per_gas,
+            blob_hashes,
         }
     }
 
@@ -323,6 +336,8 @@ impl Transaction {
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             if let TypedTransaction::EIP1559Transaction(tx) = t.as_unsigned() {
                 (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
+            } else if let TypedTransaction::BlobTransaction(tx) = t.as_unsigned() {
+                (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
             } else {
                 (None, None)
             };
@@ -332,6 +347,14 @@ impl Transaction {
         } else {
             None
         };
+
+
+        let blob_hashes = if t.tx_type() == TypedTxId::BlobTransaction {
+            Some(t.blob_hashes())
+        } else {
+            None
+        };
+
 
         Transaction {
             hash: t.hash(),
@@ -366,6 +389,7 @@ impl Transaction {
             transaction_type: t.tx_type().to_U64_option_id(),
             access_list,
             max_priority_fee_per_gas,
+            blob_hashes,
         }
     }
 
