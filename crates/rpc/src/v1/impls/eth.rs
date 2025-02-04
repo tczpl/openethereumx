@@ -256,7 +256,7 @@ where
             BlockNumberOrId::Id(id) => client_query(id),
         };
         
-        info!("query result");
+        // info!("query result");
 
         match (block, difficulty) {
             (Some(block), Some(total_difficulty)) => {

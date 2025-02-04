@@ -97,7 +97,7 @@ impl<'a> BlockView<'a> {
     }
 
     pub fn withdrawals(&self) -> Vec<Withdrawal> {
-        info!("withdrawals decoding at 3 &self.rlp().item_count()={}", &self.rlp().item_count());
+        // info!("withdrawals decoding at 3 &self.rlp().item_count()={}", &self.rlp().item_count());
         Withdrawal::decode_rlp_list(&self.rlp.at(3).rlp).unwrap()
     }
 
