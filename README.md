@@ -6,7 +6,7 @@ OpenEthereum's goal is to be the fastest, lightest, and most secure Ethereum cli
 
 Unfortunately, OpenEthereum is deprecated. However, many workflows depend on OpenEthereum's interfaces.
 
-OpenEthereumX implements several hard forks (***The Merge, Shanghai-Capella, Dencun***) of the execution layer so that nodes can still keep up with the mainnet blocks.
+OpenEthereumX implements several hard forks (***The Merge, Shanghai-Capella, Dencun***) of the execution layer so that nodes can still keep up with the mainnet blocks (with the ```import``` command).
 
 ## Building OpenEthereumX
 
