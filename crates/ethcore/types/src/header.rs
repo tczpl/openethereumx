@@ -102,6 +102,7 @@ pub struct Header {
     blob_gas_used: Option<U256>,
     excess_blob_gas: Option<U256>,
     parent_beacon_root: Option<H256>,
+    requests_hash: Option<H256>,
 }
 
 impl PartialEq for Header {
@@ -157,6 +158,7 @@ impl Default for Header {
             blob_gas_used: None,
             excess_blob_gas: None,
             parent_beacon_root: None,
+            requests_hash: None,
         }
     }
 }
@@ -392,6 +394,10 @@ impl Header {
         change_field(&mut self.hash, &mut self.parent_beacon_root, a);
     }
 
+    pub fn set_requests_hash(&mut self, a: Option<H256>) {
+        change_field(&mut self.hash, &mut self.requests_hash, a);
+    }
+
     /// Get the withdrawl_hash field of the header.
     pub fn withdrawl_hash(&self) -> H256 {
         self.withdrawals_hash.unwrap()
@@ -400,6 +406,11 @@ impl Header {
     pub fn parent_beacon_root(&self) -> Option<H256>  {
         self.parent_beacon_root
     }
+
+    pub fn requests_hash(&self) -> Option<H256> {
+        self.requests_hash
+    }
+
     pub fn excess_blob_gas(&self) -> Option<U256> {
         self.excess_blob_gas
     }
@@ -536,13 +547,33 @@ impl Header {
             blob_gas_used: None,
             excess_blob_gas: None,
             parent_beacon_root: None,
+            requests_hash: None,
         };
         // if blockheader.number == 18499937 || blockheader.number == 17500000   {
         //     info!("{} decode_rlp {:?}",  blockheader.number,hex::encode(r.as_raw()));
         // }
 
-        // info!("{} has {}  item", blockheader.number,r.item_count()?);
-        if blockheader.number >= 19426587 {
+        info!("{} has {}  item", blockheader.number,r.item_count()?);
+        if blockheader.number >= 22431084 {
+            for i in 13..r.item_count()? - 6 {
+                blockheader.seal.push(r.at(i)?.as_raw().to_vec())
+            }
+            blockheader.base_fee_per_gas = Some(r.val_at(r.item_count()? - 6)?);
+
+            let the_hash = r.val_at(r.item_count()? - 5)?;
+            blockheader.withdrawals_hash = Some(the_hash);
+            
+            blockheader.blob_gas_used = Some(r.val_at(r.item_count()? - 4)?);
+            
+            blockheader.excess_blob_gas = Some(r.val_at(r.item_count()? - 3)?);
+
+            let the_hash2 = r.val_at(r.item_count()? - 2)?;
+            blockheader.parent_beacon_root = Some(the_hash2);
+
+            let the_hash3 = r.val_at(r.item_count()? - 1)?;
+            blockheader.requests_hash = Some(the_hash3);
+        }
+        else if blockheader.number >= 19426587 {
             for i in 13..r.item_count()? - 5 {
                 blockheader.seal.push(r.at(i)?.as_raw().to_vec())
             }

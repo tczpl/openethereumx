@@ -500,6 +500,7 @@ impl<'x> OpenBlock<'x> {
             .header.set_seal(header.seal().to_vec());
         self.block.header.set_excess_blob_gas(header.excess_blob_gas());
         self.block.header.set_parent_beacon_root(header.parent_beacon_root());
+        self.block.header.set_requests_hash(header.requests_hash());
         // TODO: that's horrible. set only for backwards compatibility
         if header.extra_data().len() > self.engine.maximum_extra_data_size() {
             warn!("Couldn't set extradata. Ignoring.");
