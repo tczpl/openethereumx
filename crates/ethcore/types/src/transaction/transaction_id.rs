@@ -22,6 +22,7 @@ use serde_repr::*;
 #[derive(Serialize_repr, Eq, Hash, Deserialize_repr, Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum TypedTxId {
+    SetCodeTransaction = 0x04,
     BlobTransaction = 0x03,
     EIP1559Transaction = 0x02,
     AccessList = 0x01,
@@ -36,12 +37,14 @@ impl TypedTxId {
             1 => Some(Self::AccessList),
             2 => Some(Self::EIP1559Transaction),
             3 => Some(Self::BlobTransaction),
+            4 => Some(Self::SetCodeTransaction),
             _ => None,
         }
     }
 
     pub fn try_from_wire_byte(n: u8) -> Result<Self, ()> {
         match n {
+            x if x == TypedTxId::SetCodeTransaction as u8 => Ok(TypedTxId::SetCodeTransaction),
             x if x == TypedTxId::BlobTransaction as u8 => Ok(TypedTxId::BlobTransaction),
             x if x == TypedTxId::EIP1559Transaction as u8 => Ok(TypedTxId::EIP1559Transaction),
             x if x == TypedTxId::AccessList as u8 => Ok(TypedTxId::AccessList),
@@ -58,6 +61,7 @@ impl TypedTxId {
             Some(0x01) => Some(Self::AccessList),
             Some(0x02) => Some(Self::EIP1559Transaction),
             Some(0x03) => Some(Self::BlobTransaction),
+            Some(0x04) => Some(Self::SetCodeTransaction),
             _ => None,
         }
     }

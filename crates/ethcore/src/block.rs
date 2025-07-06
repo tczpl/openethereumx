@@ -31,6 +31,7 @@
 //! `ExecutedBlock` is an underlaying data structure used by all structs above to store block
 //! related info.
 
+use std::str::FromStr;
 use std::{cmp, collections::HashSet, ops, sync::Arc};
 
 use bytes::Bytes;
@@ -402,6 +403,126 @@ impl<'x> OpenBlock<'x> {
     }
 
 
+    // EIP-2935
+    pub fn process_parent_block_hash(&mut self, parent_block_hash: H256){
+        let env_info: EnvInfo = self.block.env_info();
+
+        let from_u8 = FromHex::from_hex("fffffffffffffffffffffffffffffffffffffffe").unwrap();
+        let from = Address::from_slice(&from_u8);
+        let to_u8 = FromHex::from_hex("0000F90827F1C53a10cb7A02335B175320002935").unwrap();
+        let to = Address::from_slice(&to_u8);
+        
+        let parent_block_hash_str = parent_block_hash.as_bytes();
+        let data = Vec::<u8>::from(parent_block_hash_str);
+        
+        let t = TypedTransaction::Legacy(transaction::Transaction {
+            nonce: U256::from(0),
+            action: Action::Call(to),
+            gas: U256::from(30_000_000),
+            gas_price: U256::from(0),
+            value: U256::from(0),
+            data: data,
+        })
+        .fake_sign(from);
+
+        // info!("begin root={:?}", self.block.state.root().clone());
+        let outcome = self.block.state.apply(
+            &env_info,
+            self.engine.machine(),
+            &t,
+            self.block.traces.is_enabled(),
+        );
+        self.block.state.commit();
+        // info!("parent_block_hash={:?}", parent_block_hash);
+        // info!("end root={:?}", self.block.state.root().clone());
+    }
+
+
+    pub fn parse_deposit_logs(&mut self){
+        let all_logs: Vec<&types::log_entry::LogEntry> = self.block.receipts.iter().flat_map(|r| r.logs.iter()).collect::<Vec<_>>();
+        let deposit_topic = H256::from_str("649bbc62d0e31342afea4e5cd82d4049e7e1ee912fc0889aa790803be39038c5").unwrap();
+        let deposit_contract_address = Address::from_str("00000000219ab540356cbb839cbe05303d7705fa").unwrap();
+
+        
+        for one_log in all_logs {
+            let topics = &one_log.topics;
+            let address = one_log.address;
+
+            if address == deposit_contract_address && topics.len() > 0 && topics[0] == deposit_topic {
+                info!("parse_deposit_logs deposit_log={:?}", one_log);
+            }
+        }
+    }
+
+    // EIP-
+    pub fn process_withdrawal_queue(&mut self){
+        let env_info: EnvInfo = self.block.env_info();
+
+        let from_u8 = FromHex::from_hex("fffffffffffffffffffffffffffffffffffffffe").unwrap();
+        let from = Address::from_slice(&from_u8);
+        let to_u8 = FromHex::from_hex("00000961Ef480Eb55e80D19ad83579A64c007002").unwrap();
+        let to = Address::from_slice(&to_u8);
+        
+        let mut data = Vec::<u8>::new();
+        data.push(0x01);
+        
+        let t = TypedTransaction::Legacy(transaction::Transaction {
+            nonce: U256::from(0),
+            action: Action::Call(to),
+            gas: U256::from(30_000_000),
+            gas_price: U256::from(0),
+            value: U256::from(0),
+            data: data,
+        })
+        .fake_sign(from);
+
+        info!("begin root={:?}", self.block.state.root().clone());
+        let outcome = self.block.state.apply(
+            &env_info,
+            self.engine.machine(),
+            &t,
+            self.block.traces.is_enabled(),
+        );
+        info!("withdrawal_queue receipt={:?}", outcome.unwrap().receipt);
+        self.block.state.commit();
+        info!("end root={:?}", self.block.state.root().clone());
+    }
+
+    pub fn process_consolidation_queue(&mut self){
+        let env_info: EnvInfo = self.block.env_info();
+
+        let from_u8 = FromHex::from_hex("fffffffffffffffffffffffffffffffffffffffe").unwrap();
+        let from = Address::from_slice(&from_u8);
+        let to_u8 = FromHex::from_hex("0000BBdDc7CE488642fb579F8B00f3a590007251").unwrap();
+        let to = Address::from_slice(&to_u8);
+        
+        let mut data = Vec::<u8>::new();
+        data.push(0x02);
+        
+        let t = TypedTransaction::Legacy(transaction::Transaction {
+            nonce: U256::from(0),
+            action: Action::Call(to),
+            gas: U256::from(30_000_000),
+            gas_price: U256::from(0),
+            value: U256::from(0),
+            data: data,
+        })
+        .fake_sign(from);
+
+        info!("begin root={:?}", self.block.state.root().clone());
+        let outcome = self.block.state.apply(
+            &env_info,
+            self.engine.machine(),
+            &t,
+            self.block.traces.is_enabled(),
+        );
+        self.block.state.commit();
+        info!("end root={:?}", self.block.state.root().clone());
+    }   
+
+
+
+
     /// Push a transaction into the block.
     ///
     /// If valid, it will be executed, and archived together with the receipt.
@@ -416,7 +537,7 @@ impl<'x> OpenBlock<'x> {
 
         let env_info = self.block.env_info();
 
-        // let original_state = self.block.state.clone();
+        let original_state = self.block.state.clone();
 
         let outcome = self.block.state.apply(
             &env_info,
@@ -425,13 +546,13 @@ impl<'x> OpenBlock<'x> {
             self.block.traces.is_enabled(),
         )?;
 
-        // let state_diff =  self.state.diff_from(original_state).unwrap();
+        let state_diff =  self.state.diff_from(original_state).unwrap();
         // info!("original state_diff={:?}", &state_diff);
 
 
-        // let x_state_diff = XStateDiff::from(state_diff);
-        // let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
-        // info!("push_transaction tx={:?} state_root={:?} x_state_diff_json={:?}", t.hash(), self.block.state.root().clone(), x_state_diff_json);
+        let x_state_diff = XStateDiff::from(state_diff);
+        let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
+        info!("push_transaction tx={:?} state_root={:?} x_state_diff_json={:?}", t.hash(), self.block.state.root().clone(), x_state_diff_json);
         
         self.block
             .transactions_set
@@ -747,6 +868,12 @@ pub(crate) fn enact(
         b.process_beacon_block_root(header.parent_beacon_root().unwrap());
     }
 
+    if header.number() >= 22431084 {
+        b.process_parent_block_hash(*header.parent_hash());
+    }
+    info!("header.number()={:?}", header.number());
+    info!("header.hash()={:?}", header.hash());
+
     // t_nb 8.3 execute transactions one by one
     b.push_transactions(transactions)?;
 
@@ -766,6 +893,15 @@ pub(crate) fn enact(
 
             b.block.withdrawals.push(withdrawal);
         }
+    }
+
+
+
+    if header.number() >= 22431084 {
+        // get all logs
+        b.parse_deposit_logs();
+        b.process_withdrawal_queue();
+        b.process_consolidation_queue();
     }
 
     // t_nb 8.4 Push uncles to OpenBlock and check if we have more then max uncles

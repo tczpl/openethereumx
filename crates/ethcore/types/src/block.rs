@@ -83,16 +83,10 @@ impl Block {
             return Err(DecoderError::RlpIncorrectListLen);
         }
         let header = Header::decode_rlp(&rlp.at(0)?, eip1559_transition)?;
-        info!("done header decode_rlp {}", header.number());
-        info!("done header header={:?}", &header);
 
         let transactions = TypedTransaction::decode_rlp_list(&rlp.at(1)?)?;
-        info!("done transactions decode_rlp {}", header.number());
-        info!("done transactions transactions={:?}", &transactions);
 
         let uncles = Header::decode_rlp_list(&rlp.at(2)?, eip1559_transition)?;
-        info!("done uncles decode_rlp {}", header.number());
-        info!("done uncles uncles={:?}", &uncles);
         let mut block = Block {
             header: header,
             transactions: transactions,

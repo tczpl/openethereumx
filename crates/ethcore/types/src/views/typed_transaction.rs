@@ -92,6 +92,9 @@ impl<'a> TypedTransactionView<'a> {
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(0),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(0),
         }
     }
 
@@ -108,7 +111,9 @@ impl<'a> TypedTransactionView<'a> {
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(1),
-                
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(1),
         }
     }
 
@@ -123,6 +128,9 @@ impl<'a> TypedTransactionView<'a> {
                 .rlp
                 .val_at(3),
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(3),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(3),
         }
@@ -145,6 +153,17 @@ impl<'a> TypedTransactionView<'a> {
                 )
             }
             TypedTxId::BlobTransaction => {
+                let max_priority_fee_per_gas: U256 =
+                    view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                        .rlp
+                        .val_at(2);
+
+                min(
+                    self.gas_price(),
+                    max_priority_fee_per_gas + block_base_fee.unwrap_or_default(),
+                )
+            }
+            TypedTxId::SetCodeTransaction => {
                 let max_priority_fee_per_gas: U256 =
                     view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                         .rlp
@@ -189,6 +208,17 @@ impl<'a> TypedTransactionView<'a> {
                         .saturating_sub(block_base_fee.unwrap_or_default()),
                 )
             }
+            TypedTxId::SetCodeTransaction => {
+                let max_priority_fee_per_gas: U256 =
+                    view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                        .rlp
+                        .val_at(2);
+                min(
+                    max_priority_fee_per_gas,
+                    self.gas_price()
+                        .saturating_sub(block_base_fee.unwrap_or_default()),
+                )
+            }
         }
     }
 
@@ -203,6 +233,9 @@ impl<'a> TypedTransactionView<'a> {
                 .rlp
                 .val_at(4),
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(4),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(4),
         }
@@ -221,6 +254,9 @@ impl<'a> TypedTransactionView<'a> {
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(6),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(6),
         }
     }
 
@@ -235,6 +271,9 @@ impl<'a> TypedTransactionView<'a> {
                 .rlp
                 .val_at(7),
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(7),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(7),
         }
@@ -280,6 +319,18 @@ impl<'a> TypedTransactionView<'a> {
                     chain_id,
                 )
             }
+            TypedTxId::SetCodeTransaction => {
+                let chain_id = match self.chain_id() {
+                    0 => None,
+                    n => Some(n),
+                };
+                signature::add_chain_replay_protection(
+                    view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                        .rlp
+                        .val_at(10),
+                    chain_id,
+                )
+            }
         };
         r as u8
     }
@@ -296,6 +347,9 @@ impl<'a> TypedTransactionView<'a> {
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(11),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(10),
         }
     }
 
@@ -312,6 +366,9 @@ impl<'a> TypedTransactionView<'a> {
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(12),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(11),
         }
     }
 
@@ -328,6 +385,9 @@ impl<'a> TypedTransactionView<'a> {
             TypedTxId::BlobTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
                 .rlp
                 .val_at(13),
+            TypedTxId::SetCodeTransaction => view!(Self, &self.rlp.rlp.data().unwrap()[1..])
+                .rlp
+                .val_at(12),
         }
     }
 }

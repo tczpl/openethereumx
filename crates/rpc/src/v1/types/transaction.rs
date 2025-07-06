@@ -242,6 +242,14 @@ impl Transaction {
                     .map(Into::into)
                     .collect(),
             ),
+            TypedTransaction::SetCodeTransaction(tx) => Some(
+                tx.transaction
+                    .access_list
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            ),
             TypedTransaction::Legacy(_) => None,
         };
 
@@ -249,6 +257,8 @@ impl Transaction {
             if let TypedTransaction::EIP1559Transaction(tx) = t.as_unsigned() {
                 (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
             } else if let TypedTransaction::BlobTransaction(tx) = t.as_unsigned() {
+                (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
+            } else if let TypedTransaction::SetCodeTransaction(tx) = t.as_unsigned() {
                 (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
             } else {
                 (None, None)
@@ -330,6 +340,15 @@ impl Transaction {
                     .map(Into::into)
                     .collect(),
             ),
+            // TODO 7702 rpc
+            TypedTransaction::SetCodeTransaction(tx) => Some(
+                tx.transaction
+                    .access_list
+                    .clone()
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            ),
             TypedTransaction::Legacy(_) => None,
         };
 
@@ -337,6 +356,8 @@ impl Transaction {
             if let TypedTransaction::EIP1559Transaction(tx) = t.as_unsigned() {
                 (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
             } else if let TypedTransaction::BlobTransaction(tx) = t.as_unsigned() {
+                (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
+            } else if let TypedTransaction::SetCodeTransaction(tx) = t.as_unsigned() {
                 (Some(tx.tx().gas_price), Some(tx.max_priority_fee_per_gas))
             } else {
                 (None, None)

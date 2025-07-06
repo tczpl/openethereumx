@@ -114,6 +114,7 @@ pub enum TypedReceipt {
     AccessList(LegacyReceipt),
     EIP1559Transaction(LegacyReceipt),
     BlobTransaction(LegacyReceipt),
+    SetCodeTransaction(LegacyReceipt),
 }
 
 impl TypedReceipt {
@@ -121,6 +122,7 @@ impl TypedReceipt {
     pub fn new(type_id: TypedTxId, legacy_receipt: LegacyReceipt) -> Self {
         //curently we are using same receipt for both legacy and typed transaction
         match type_id {
+            TypedTxId::SetCodeTransaction => Self::SetCodeTransaction(legacy_receipt),
             TypedTxId::BlobTransaction => Self::BlobTransaction(legacy_receipt),
             TypedTxId::EIP1559Transaction => Self::EIP1559Transaction(legacy_receipt),
             TypedTxId::AccessList => Self::AccessList(legacy_receipt),
@@ -134,6 +136,7 @@ impl TypedReceipt {
             Self::AccessList(_) => TypedTxId::AccessList,
             Self::EIP1559Transaction(_) => TypedTxId::EIP1559Transaction,
             Self::BlobTransaction(_) => TypedTxId::BlobTransaction,
+            Self::SetCodeTransaction(_) => TypedTxId::SetCodeTransaction,
         }
     }
 
@@ -143,6 +146,7 @@ impl TypedReceipt {
             Self::AccessList(receipt) => receipt,
             Self::EIP1559Transaction(receipt) => receipt,
             Self::BlobTransaction(receipt) => receipt,
+            Self::SetCodeTransaction(receipt) => receipt,
         }
     }
 
@@ -152,6 +156,7 @@ impl TypedReceipt {
             Self::AccessList(receipt) => receipt,
             Self::EIP1559Transaction(receipt) => receipt,
             Self::BlobTransaction(receipt) => receipt,
+            Self::SetCodeTransaction(receipt) => receipt,
         }
     }
 
@@ -166,6 +171,10 @@ impl TypedReceipt {
         }
         //other transaction types
         match id.unwrap() {
+            TypedTxId::SetCodeTransaction => {
+                let rlp = Rlp::new(&tx[1..]);
+                Ok(Self::SetCodeTransaction(LegacyReceipt::decode(&rlp)?))
+            }
             TypedTxId::BlobTransaction => {
                 let rlp = Rlp::new(&tx[1..]);
                 Ok(Self::BlobTransaction(LegacyReceipt::decode(&rlp)?))
@@ -221,6 +230,11 @@ impl TypedReceipt {
                 receipt.rlp_append(&mut rlps);
                 s.append(&[&[TypedTxId::BlobTransaction as u8], rlps.as_raw()].concat());
             }
+            Self::SetCodeTransaction(receipt) => {
+                let mut rlps = RlpStream::new();
+                receipt.rlp_append(&mut rlps);
+                s.append(&[&[TypedTxId::SetCodeTransaction as u8], rlps.as_raw()].concat());
+            }
         }
     }
 
@@ -252,6 +266,11 @@ impl TypedReceipt {
                 let mut rlps = RlpStream::new();
                 receipt.rlp_append(&mut rlps);
                 [&[TypedTxId::BlobTransaction as u8], rlps.as_raw()].concat()
+            }
+            Self::SetCodeTransaction(receipt) => {
+                let mut rlps = RlpStream::new();
+                receipt.rlp_append(&mut rlps);
+                [&[TypedTxId::SetCodeTransaction as u8], rlps.as_raw()].concat()
             }
         }
     }

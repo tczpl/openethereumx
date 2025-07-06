@@ -1153,7 +1153,7 @@ impl<B: Backend> State<B> {
                 a.state = AccountState::Committed;
                 match a.account {
                     Some(ref mut account) => {
-                        // info!("state tx={:?} addr={:?} balance={:?} nonce={:?}", txhash,  address, &account.balance(), &account.nonce());
+                        info!("state tx={:?} addr={:?} balance={:?} nonce={:?}", txhash,  address, &account.balance(), &account.nonce());
                         trie.insert(address.as_bytes(), &account.rlp())?;
                     }
                     None => {

@@ -164,10 +164,9 @@ pub mod blocks {
             let (header, transactions, uncles) = {
                 let rlp = Rlp::new(&bytes);
                 let header = Header::decode_rlp(&rlp.at(0)?, eip1559_transition)?;
-                info!("done header decode_rlp {}", header.number());
-                info!("done header header={:?}", &header);
+                // info!("done header decode_rlp {}", header.number());
                 let transactions = TypedTransaction::decode_rlp_list(&rlp.at(1)?)?;
-                info!("done transactions decode_rlp {}", header.number());
+                // info!("done transactions decode_rlp {} len={}" , header.number(), transactions.len());
                 let uncles = Header::decode_rlp_list(&rlp.at(2)?, eip1559_transition)?;
                 (header, transactions, uncles)
             };

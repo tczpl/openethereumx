@@ -260,16 +260,27 @@ impl Header {
         if self.number < 19426587 {
             return 0
         }
-        
+
         let MIN_BLOB_GASPRICE =  1;
-        let BLOB_GASPRICE_UPDATE_FRACTION = 3338477;
-        let ret = self.fake_exponential(
-            MIN_BLOB_GASPRICE,
-            self.excess_blob_gas.unwrap().as_u64(),
-            BLOB_GASPRICE_UPDATE_FRACTION,
-        );
-        // info!("blob_base_fee number={:?} ret={:?}", self.number, ret);
-        ret
+
+        if self.number < 22431084 {
+            let BLOB_GASPRICE_UPDATE_FRACTION = 3338477;
+            let ret = self.fake_exponential(
+                MIN_BLOB_GASPRICE,
+                self.excess_blob_gas.unwrap().as_u64(),
+                BLOB_GASPRICE_UPDATE_FRACTION,
+            );
+            ret
+        } else {
+            let BLOB_GASPRICE_UPDATE_FRACTION = 5007716;
+            let ret = self.fake_exponential(
+                MIN_BLOB_GASPRICE,
+                self.excess_blob_gas.unwrap().as_u64(),
+                BLOB_GASPRICE_UPDATE_FRACTION,
+            );
+            ret
+        }
+        
     }
 
 
@@ -510,6 +521,11 @@ impl Header {
             s.append(&self.excess_blob_gas.unwrap());
             s.append(&self.parent_beacon_root.unwrap());
         }
+
+        // XBlock Pectra
+        if self.requests_hash.is_some() {
+            s.append(&self.requests_hash.unwrap());
+        }
     }
 }
 
@@ -553,7 +569,7 @@ impl Header {
         //     info!("{} decode_rlp {:?}",  blockheader.number,hex::encode(r.as_raw()));
         // }
 
-        info!("{} has {}  item", blockheader.number,r.item_count()?);
+        // info!("{} has {}  item", blockheader.number,r.item_count()?);
         if blockheader.number >= 22431084 {
             for i in 13..r.item_count()? - 6 {
                 blockheader.seal.push(r.at(i)?.as_raw().to_vec())

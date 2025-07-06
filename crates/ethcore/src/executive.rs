@@ -1206,8 +1206,23 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     ));
                 }
             }
+            // TODO eip7702
+            TypedTransaction::SetCodeTransaction(_) => {
+                if !schedule.eip1559 {
+                    return Err(ExecutionError::TransactionMalformed(
+                        "SetCodeTransaction not enabled".into(),
+                    ));
+                }
+            }
             TypedTransaction::Legacy(_) => (), //legacy transactions are allways valid
         };
+
+        match t.as_unsigned() {
+            TypedTransaction::SetCodeTransaction(_) => {
+                info!("transact_with_tracer SetCodeTransaction");
+            }
+            _ => (),
+        }
 
         // info!("transact_with_tracer 1");
         let sender = t.sender();
@@ -1280,7 +1295,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         // info!("transact_with_tracer 5");
         // validate if transaction fits into given block
-        if self.info.gas_used + t.tx().gas > self.info.gas_limit {
+        if self.info.gas_used + t.tx().gas > self.info.gas_limit && !t.has_zero_gas_price(){
             info!("self.info.gas_used={:?} t.tx().gas={:?} self.info.gas_limit={:?} ", self.info.gas_used, t.tx().gas, self.info.gas_limit);
             return Err(ExecutionError::BlockGasLimitReached {
                 gas_limit: self.info.gas_limit,
