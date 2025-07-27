@@ -1241,12 +1241,16 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     let recovered_address = item.recover_address();
                     info!("recovered_address={:?}", recovered_address);
 
+                    const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
+                    const PER_AUTH_BASE_COST: u64 = 12500;
                     // TODO
-                    // If the account already exists in state, refund the new account cost 
-                    // charged in the intrinsic calculation.
-                    // if self.state.exists(&recovered_address)? {
-                    //     self.state.add_refund(params.CallNewAccountGas - params.TxAuthTupleGas)
-                    // }
+                    if self.state.exists(&recovered_address)? {
+                        info!("recovered_address={:?} already exists", recovered_address);
+                        base_gas_required += U256::from(PER_AUTH_BASE_COST);
+                    } else {
+                        base_gas_required += U256::from(PER_EMPTY_ACCOUNT_COST);
+                    }
+                    info!("base_gas_required={:?}", base_gas_required);
 
                     self.state.inc_nonce(&recovered_address)?;
 
@@ -1268,8 +1272,6 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     info!("reset code finished");
                 }
                 
-                const CALL_NEW_ACCOUNT_GAS: u64 = 25000;
-                base_gas_required += U256::from(setcode_tx.authorization_list.len()) * U256::from(CALL_NEW_ACCOUNT_GAS);
             }
             _ => (),
         }
@@ -1438,7 +1440,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             }
             Action::Call(ref address) => {
                 access_list.insert_address(address.clone());
-                let params = ActionParams {
+                let mut params = ActionParams {
                     code_address: address.clone(),
                     address: address.clone(),
                     sender: sender.clone(),
@@ -1454,6 +1456,47 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     access_list: access_list,
                     blob_hashes: t.blob_hashes(),
                 };
+
+                
+                let code_res = self
+                .state
+                .code(address)
+                .and_then(|code| self.state.code_hash(address).map(|hash| (code, hash)));
+
+                let (code, code_hash) = match code_res {
+                    Ok((code, hash)) => (code, hash),
+                    Err(_) => (None, None)
+                };
+                
+                let mut is_eip7702 = false;
+                let mut new_code_address = address.clone();
+                let delegation_prefix =  FromHex::from_hex("ef0100").unwrap();
+                match code {
+                    Some(ref code) => {
+                        // info!("code={:?}", code);
+                        if code.len() == 23 && code.starts_with(&delegation_prefix) {
+                            new_code_address = Address::from_slice(&code[3..23]);
+                            is_eip7702 = true;
+                        }
+                    }
+                    None => ()
+                }
+
+                if is_eip7702 && self.info.number >= 22431084 {
+                    let new_code_res = self
+                    .state
+                    .code(&new_code_address)
+                    .and_then(|code| self.state.code_hash(&new_code_address).map(|hash| (code, hash)));
+                    let (new_code, new_code_hash) = match new_code_res {
+                        Ok((code, hash)) => (code, hash),
+                        Err(_) => (None, None)
+                    };
+                    params.code_address = new_code_address;
+                    params.code = new_code;
+                    params.code_hash = new_code_hash;;
+                }
+
+
                 let res = self.call(params, &mut substate, &mut tracer, &mut vm_tracer);
                 let out = match &res {
                     Ok(res) => res.return_data.to_vec(),
