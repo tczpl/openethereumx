@@ -1266,7 +1266,11 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                         Err(_) => ()
                     }
 
-                    gas_refund_for_7702 += i128::from(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
+                    if self.state.exists(&recovered_address)? {
+                        info!("recovered_address={:?} already exists", recovered_address);
+                        gas_refund_for_7702 += i128::from(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
+                    }
+
                     info!("base_gas_required={:?} gas_refund_for_7702={:?}", base_gas_required, gas_refund_for_7702);
 
                     self.state.inc_nonce(&recovered_address)?;
@@ -1274,17 +1278,17 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     // TODO: zero address
                     if item.address == (Address::default()) {
                         // Delegation to zero address means clear.
+                        info!("delegation to zero address");
                         self.state.reset_code(&recovered_address, Bytes::new())?
                     }
-
-                    let delegation_prefix =  FromHex::from_hex("ef0100").unwrap();
-                    
-                    let mut address_to_delegation = Vec::<u8>::new();
-                    address_to_delegation.extend_from_slice(&delegation_prefix);
-                    address_to_delegation.extend_from_slice(&item.address.as_bytes());
-                    info!("address_to_delegation={:?}", address_to_delegation.to_hex());
-                    self.state.reset_code(&recovered_address, address_to_delegation)?;
-
+                    else {
+                        let delegation_prefix =  FromHex::from_hex("ef0100").unwrap();
+                        let mut address_to_delegation = Vec::<u8>::new();
+                        address_to_delegation.extend_from_slice(&delegation_prefix);
+                        address_to_delegation.extend_from_slice(&item.address.as_bytes());
+                        info!("address_to_delegation={:?}", address_to_delegation.to_hex());
+                        self.state.reset_code(&recovered_address, address_to_delegation)?;
+                    }
                     access_list.insert_address(recovered_address);
                     info!("reset code finished");
                 }
