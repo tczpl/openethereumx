@@ -444,7 +444,7 @@ where
             blob_hashes: self.origin_info.blob_hashes.clone(),
         };
 
-        if is_eip7702 {
+        if is_eip7702 && self.env_info.number >= 22431084 {
             let new_code_res = self
             .state
             .code(&new_code_address)

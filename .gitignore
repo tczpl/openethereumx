@@ -56,6 +56,7 @@ info_*
 temp/
 compare_statediff.py
 compare_opcode.py
+compare_tx.py
 debug*.json
 *.log
 # use 1.64.0 please

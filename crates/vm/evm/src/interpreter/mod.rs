@@ -441,9 +441,9 @@ impl<Cost: CostType> Interpreter<Cost> {
                     .current_mem_gas = requirements.memory_total_gas;
                 
 
-                if self.params.origin == Address::from_str("43370108f30ee5ed54a9565f37af3be8502903f5").unwrap() {
-                    println!("instruction={:?} current_gas={:?} gas_cost={:?}", &instruction, self.gasometer.as_mut().expect(GASOMETER_PROOF).current_gas, requirements.gas_cost);
-                }
+                // if self.params.origin == Address::from_str("43370108f30ee5ed54a9565f37af3be8502903f5").unwrap() {
+                //     println!("instruction={:?} current_gas={:?} gas_cost={:?}", &instruction, self.gasometer.as_mut().expect(GASOMETER_PROOF).current_gas, requirements.gas_cost);
+                // }
 
                 self.gasometer.as_mut().expect(GASOMETER_PROOF).current_gas =
                     self.gasometer.as_mut().expect(GASOMETER_PROOF).current_gas

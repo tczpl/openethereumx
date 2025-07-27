@@ -546,13 +546,13 @@ impl<'x> OpenBlock<'x> {
             self.block.traces.is_enabled(),
         )?;
 
-        let state_diff =  self.state.diff_from(original_state).unwrap();
-        // info!("original state_diff={:?}", &state_diff);
+        // let state_diff =  self.state.diff_from(original_state).unwrap();
+        // // info!("original state_diff={:?}", &state_diff);
 
 
-        let x_state_diff = XStateDiff::from(state_diff);
-        let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
-        info!("push_transaction tx={:?} state_root={:?} x_state_diff_json={:?}", t.hash(), self.block.state.root().clone(), x_state_diff_json);
+        // let x_state_diff = XStateDiff::from(state_diff);
+        // let x_state_diff_json = serde_json::to_string(&x_state_diff).unwrap();
+        // info!("push_transaction tx={:?} state_root={:?} x_state_diff_json={:?}", t.hash(), self.block.state.root().clone(), x_state_diff_json);
         
         self.block
             .transactions_set

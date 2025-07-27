@@ -23,11 +23,22 @@ use types::transaction::{self, Action};
 pub trait Transaction {
     /// Get the transaction cost in gas for this transaction.
     fn gas_required(&self, schedule: &Schedule) -> u64;
+    fn gas_required_for_7623(&self, schedule: &Schedule) -> u64;
 }
 
 impl Transaction for transaction::Transaction {
     fn gas_required(&self, schedule: &Schedule) -> u64 {
         gas_required_for(
+            match self.action {
+                Action::Create => true,
+                Action::Call(_) => false,
+            },
+            &self.data,
+            schedule,
+        )
+    }
+    fn gas_required_for_7623(&self, schedule: &Schedule) -> u64 {
+        gas_required_for_7623(
             match self.action {
                 Action::Create => true,
                 Action::Call(_) => false,
@@ -53,4 +64,21 @@ fn gas_required_for(is_create: bool, data: &[u8], schedule: &Schedule) -> u64 {
             }) as u64
         },
     )
+}
+
+// XBlock Pectra: EIP-7623
+// FloorDataGas computes the minimum gas required for a transaction based on its data tokens (EIP-7623).
+fn gas_required_for_7623(is_create: bool, data: &[u8], schedule: &Schedule) -> u64 {
+    const STANDARD_TOKEN_COST: usize = 4;
+    const TOTAL_COST_FLOOR_PER_TOKEN: usize = 10;
+
+	let z      = data.iter().filter(|&b| *b == 0).count();
+	let nz     = data.len() - z;
+	let tokens = nz*STANDARD_TOKEN_COST + z;
+
+	// Minimum gas required for a transaction based on its data tokens (EIP-7623).
+
+	let ret = schedule.tx_gas + tokens*TOTAL_COST_FLOOR_PER_TOKEN;
+
+    ret as u64
 }

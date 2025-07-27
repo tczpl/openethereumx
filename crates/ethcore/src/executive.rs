@@ -1674,9 +1674,21 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             let max_refund = gas_used / schedule.max_refund_quotient;
             cmp::min(max_refund, refunds_bound)
         };
-        let gas_left = gas_left_prerefund + refunded;
+        let mut gas_left = gas_left_prerefund + refunded;
 
-        let gas_used = t.tx().gas.saturating_sub(gas_left);
+        let mut gas_used = t.tx().gas.saturating_sub(gas_left);
+
+        let gas_used_7623 = t.tx().gas_required_for_7623(&schedule);
+
+        // info!("calculate gas_used={:?} gas_used_7623={:?}", gas_used, gas_used_7623);
+
+        if self.info.number >= 22431084 {
+            if gas_used < U256::from(gas_used_7623) {
+                gas_used = U256::from(gas_used_7623);
+                gas_left = t.tx().gas.saturating_sub(gas_used);
+            }
+        }
+
         let (refund_value, overflow_1) =
             gas_left.overflowing_mul(t.effective_gas_price(self.info.base_fee));
         let (fees_value, overflow_2) =
