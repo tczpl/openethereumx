@@ -207,4 +207,7 @@ pub trait Ext {
 
     /// Inserts an address into the list
     fn al_insert_address(&mut self, address: Address);
+
+    fn parse_7702_delegation(&self, code_address: &Address) -> (Address, bool);
+
 }

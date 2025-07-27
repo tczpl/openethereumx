@@ -439,6 +439,12 @@ impl<Cost: CostType> Interpreter<Cost> {
                     .as_mut()
                     .expect(GASOMETER_PROOF)
                     .current_mem_gas = requirements.memory_total_gas;
+                
+
+                if self.params.origin == Address::from_str("43370108f30ee5ed54a9565f37af3be8502903f5").unwrap() {
+                    println!("instruction={:?} current_gas={:?} gas_cost={:?}", &instruction, self.gasometer.as_mut().expect(GASOMETER_PROOF).current_gas, requirements.gas_cost);
+                }
+
                 self.gasometer.as_mut().expect(GASOMETER_PROOF).current_gas =
                     self.gasometer.as_mut().expect(GASOMETER_PROOF).current_gas
                         - requirements.gas_cost;
@@ -867,6 +873,12 @@ impl<Cost: CostType> Interpreter<Cost> {
                     .0;
 
                 ext.al_insert_address(code_address);
+
+                let (target, is_eip7702) = ext.parse_7702_delegation(&code_address);
+                if is_eip7702 {
+                    log::info!("EIP7702 al_insert_address target={:?}", target);
+                    ext.al_insert_address(target);
+                }
 
                 // Get sender & receive addresses, check if we have balance
                 let (sender_address, receive_address, has_balance, call_type) = match instruction {

@@ -29,6 +29,7 @@ use vm::{
 };
 
 use crate::state::TransientStorage;
+use rustc_hex::FromHex;
 
 /// Policy for handling output data on `RETURN` opcode.
 pub enum OutputPolicy {
@@ -359,6 +360,35 @@ where
         }
     }
 
+    fn parse_7702_delegation(&self, code_address: &Address) -> (Address, bool) {
+
+        let code_res = self
+            .state
+            .code(code_address)
+            .and_then(|code| self.state.code_hash(code_address).map(|hash| (code, hash)));
+
+        let (code, code_hash) = match code_res {
+            Ok((code, hash)) => (code, hash),
+            Err(_) => return (code_address.clone(), false)
+        };
+
+        let mut is_eip7702 = false;
+        let mut new_code_address = code_address.clone();
+        let delegation_prefix =  FromHex::from_hex("ef0100").unwrap();
+        match code {
+            Some(ref code) => {
+                // info!("code={:?}", code);
+                if code.len() == 23 && code.starts_with(&delegation_prefix) {
+                    new_code_address = Address::from_slice(&code[3..23]);
+                    is_eip7702 = true;
+                }
+            }
+            None => ()
+        }
+
+        (new_code_address, is_eip7702)
+    }
+
     fn call(
         &mut self,
         gas: &U256,
@@ -382,6 +412,21 @@ where
             Err(_) => return Ok(MessageCallResult::Failed),
         };
 
+        let mut is_eip7702 = false;
+        let mut new_code_address = code_address.clone();
+        let delegation_prefix =  FromHex::from_hex("ef0100").unwrap();
+        match code {
+            Some(ref code) => {
+                // info!("code={:?}", code);
+                if code.len() == 23 && code.starts_with(&delegation_prefix) {
+                    new_code_address = Address::from_slice(&code[3..23]);
+                    is_eip7702 = true;
+                }
+            }
+            None => ()
+        }
+
+
         let mut params = ActionParams {
             sender: sender_address.clone(),
             address: receive_address.clone(),
@@ -398,6 +443,21 @@ where
             access_list: self.substate.access_list.clone(),
             blob_hashes: self.origin_info.blob_hashes.clone(),
         };
+
+        if is_eip7702 {
+            let new_code_res = self
+            .state
+            .code(&new_code_address)
+            .and_then(|code| self.state.code_hash(&new_code_address).map(|hash| (code, hash)));
+            let (new_code, new_code_hash) = match new_code_res {
+                Ok((code, hash)) => (code, hash),
+                Err(_) => return Ok(MessageCallResult::Failed),
+            };
+            params.code_address = new_code_address;
+            params.code = new_code;
+            params.code_hash = new_code_hash;;
+        }
+        
 
         if let Some(value) = value {
             params.value = ActionValue::Transfer(value);

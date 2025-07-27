@@ -55,5 +55,7 @@ debugrun.sh
 info_*
 temp/
 compare_statediff.py
+compare_opcode.py
+debug*.json
 *.log
 # use 1.64.0 please

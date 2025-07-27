@@ -18,6 +18,7 @@
 
 use ethereum_types::{Address, U256};
 use log::{debug, warn};
+use rustc_hex::ToHex;
 use std::cmp::min;
 use trace::{
     trace::{
@@ -230,6 +231,18 @@ impl Tracer for ExecutiveTracer {
     }
 
     fn drain(self) -> Vec<FlatTrace> {
+        for trace in self.traces.iter() {
+            info!("action={:?}", &trace.action);
+            match &trace.action {
+                Action::Call(call) => {
+                    info!("call={:?}", call.input.to_hex());
+                }
+                _ => (),
+            }
+            info!("result={:?}", trace.result);
+            info!("subtraces={:?}", trace.subtraces);
+            info!("trace_address={:?}", trace.trace_address);
+        }
         self.traces
     }
 }

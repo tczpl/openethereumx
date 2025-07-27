@@ -175,6 +175,10 @@ where
         Some(contract_address(address, &self.sender, &self.nonce, &code).0)
     }
 
+    fn parse_7702_delegation(&self, code_address: &Address) -> (Address, bool) {
+        (code_address.clone(), false)
+    }
+        
     fn call(
         &mut self,
         gas: &U256,

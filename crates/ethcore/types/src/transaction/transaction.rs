@@ -687,6 +687,38 @@ impl rlp::Encodable for SetCodeAuthorization {
     }
 }
 
+
+impl SetCodeAuthorization {
+    // Let authority = ecrecover(msg, y_parity, r, s).
+    // Where msg = keccak(MAGIC || rlp([chain_id, address, nonce])).
+    pub fn message(&self) -> H256 {
+        let mut rlp_stream = RlpStream::new();  
+        let magic: u8 = 0x05;
+        rlp_stream.append(&magic);
+        rlp_stream.begin_list(3);
+        rlp_stream.append(&self.chain_id);
+        rlp_stream.append(&self.address);
+        rlp_stream.append(&self.nonce);
+        let buf =rlp_stream.out();       
+        let message = keccak(buf);
+        info!("message={:?}", message);
+        message
+    }
+
+    pub fn signature(&self) -> Signature {
+        let r: H256 = BigEndianHash::from_uint(&self.r);
+        let s: H256 = BigEndianHash::from_uint(&self.s);
+        Signature::from_rsv(&r, &s, self.standard_v)
+    }
+
+    pub fn recover_address(&self) -> Address {
+        let signature = self.signature();
+        let message = self.message();
+        let public = publickey::recover(&signature, &message).unwrap();
+        public_to_address(&public)
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, MallocSizeOf)]
 pub struct SetCodeTransactionTx {
     pub transaction: AccessListTx,

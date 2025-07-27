@@ -1028,7 +1028,7 @@ impl<B: Backend> State<B> {
         };
 
 
-        // info!("tx={:?} cumulative_gas_used={}", t.hash(), &e.cumulative_gas_used);
+         info!("tx={:?} cumulative_gas_used={}", t.hash(), &e.cumulative_gas_used);
         // self.commit_with_tx(&t.hash())?;
         
         let output = e.output;

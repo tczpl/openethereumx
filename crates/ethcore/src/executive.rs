@@ -35,6 +35,7 @@ use vm::{
 };
 
 use crate::state::TransientStorage;
+use rustc_hex::FromHex;
 
 #[cfg(any(test, feature = "test-helpers"))]
 /// Precompile that can never be prunned from state trie (0x3, only in tests)
@@ -1232,6 +1233,46 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         let mut access_list = AccessList::new(schedule.eip2929);
 
+        match t.as_unsigned() {
+            TypedTransaction::SetCodeTransaction(setcode_tx) => {
+                info!("transact_with_tracer SetCodeTransaction");
+                for item in setcode_tx.authorization_list.iter() {
+                    info!("authorization_list item={:?}", item);
+                    let recovered_address = item.recover_address();
+                    info!("recovered_address={:?}", recovered_address);
+
+                    // TODO
+                    // If the account already exists in state, refund the new account cost 
+                    // charged in the intrinsic calculation.
+                    // if self.state.exists(&recovered_address)? {
+                    //     self.state.add_refund(params.CallNewAccountGas - params.TxAuthTupleGas)
+                    // }
+
+                    self.state.inc_nonce(&recovered_address)?;
+
+                    // TODO: zero address
+                    if item.address == (Address::default()) {
+                        // Delegation to zero address means clear.
+                        self.state.reset_code(&recovered_address, Bytes::new())?
+                    }
+
+                    let delegation_prefix =  FromHex::from_hex("ef0100").unwrap();
+                    
+                    let mut address_to_delegation = Vec::<u8>::new();
+                    address_to_delegation.extend_from_slice(&delegation_prefix);
+                    address_to_delegation.extend_from_slice(&item.address.as_bytes());
+                    info!("address_to_delegation={:?}", address_to_delegation.to_hex());
+                    self.state.reset_code(&recovered_address, address_to_delegation)?;
+
+                    access_list.insert_address(recovered_address);
+                    info!("reset code finished");
+                }
+                
+                const CALL_NEW_ACCOUNT_GAS: u64 = 25000;
+                base_gas_required += U256::from(setcode_tx.authorization_list.len()) * U256::from(CALL_NEW_ACCOUNT_GAS);
+            }
+            _ => (),
+        }
         if schedule.eip2929 {
             access_list.insert_address(sender);
             for (address, builtin) in self.machine.builtins() {

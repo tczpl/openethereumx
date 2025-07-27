@@ -353,4 +353,8 @@ impl Ext for FakeExt {
     fn al_insert_address(&mut self, address: Address) {
         self.access_list.insert_address(address)
     }
+
+    fn parse_7702_delegation(&self, code_address: &Address) -> (Address, bool) {
+        (code_address.clone(), false)
+    }
 }
