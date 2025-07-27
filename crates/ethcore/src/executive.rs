@@ -1233,6 +1233,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         let mut access_list = AccessList::new(schedule.eip2929);
 
+        let mut gas_refund_for_7702: i128 = 0;
         match t.as_unsigned() {
             TypedTransaction::SetCodeTransaction(setcode_tx) => {
                 info!("transact_with_tracer SetCodeTransaction");
@@ -1243,14 +1244,30 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
                     const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
                     const PER_AUTH_BASE_COST: u64 = 12500;
-                    // TODO
-                    if self.state.exists(&recovered_address)? {
-                        info!("recovered_address={:?} already exists", recovered_address);
-                        base_gas_required += U256::from(PER_AUTH_BASE_COST);
-                    } else {
-                        base_gas_required += U256::from(PER_EMPTY_ACCOUNT_COST);
+                    base_gas_required += U256::from(PER_EMPTY_ACCOUNT_COST);
+                    
+                    const MAINNET_CHAIN_ID: u64 = 1;
+                    if item.chain_id != U256::zero() && item.chain_id != U256::from(MAINNET_CHAIN_ID) {
+                        info!("recovered_address={:?} chain_id is not valid", recovered_address);
                     }
-                    info!("base_gas_required={:?}", base_gas_required);
+
+                    let nonce_res = self.state.nonce(&recovered_address);
+                    match nonce_res {
+                        Ok(mut nonce) => {
+                            if recovered_address == sender {
+                                nonce += U256::from(1);
+                            }
+                            if nonce != item.nonce {
+                                info!("nonce={:?} item.nonce={:?}", nonce, item.nonce);
+                                info!("recovered_address={:?} nonce is not valid", recovered_address);
+                                continue
+                            }
+                        }
+                        Err(_) => ()
+                    }
+
+                    gas_refund_for_7702 += i128::from(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
+                    info!("base_gas_required={:?} gas_refund_for_7702={:?}", base_gas_required, gas_refund_for_7702);
 
                     self.state.inc_nonce(&recovered_address)?;
 
@@ -1392,6 +1409,8 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
         }
 
         let mut substate = Substate::from_access_list(&access_list);
+
+        substate.sstore_clears_refund += gas_refund_for_7702;
 
         // NOTE: there can be no invalid transactions from this point.
         if !schedule.keep_unsigned_nonce || !t.is_unsigned() {
@@ -1700,6 +1719,8 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             "On transaction level, sstore clears refund cannot go below zero."
         );
         let sstore_refunds = U256::from(substate.sstore_clears_refund as u64);
+
+
         // refunds from contract suicides
         let suicide_refunds =
             U256::from(schedule.suicide_refund_gas) * U256::from(substate.suicides.len());
@@ -1715,6 +1736,9 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
         } else {
             let gas_used = t.tx().gas - gas_left_prerefund;
             let max_refund = gas_used / schedule.max_refund_quotient;
+
+            info!("sstore_refunds={:?} refunds_bound={:?} gas_used={:?} max_refund={:?}", sstore_refunds, refunds_bound, gas_used, max_refund);
+
             cmp::min(max_refund, refunds_bound)
         };
         let mut gas_left = gas_left_prerefund + refunded;
