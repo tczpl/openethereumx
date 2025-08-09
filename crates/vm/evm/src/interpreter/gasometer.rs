@@ -328,6 +328,20 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 let address = u256_to_address(stack.peek(1));
                 gas = accessed_addresses_gas(&address, gas.as_usize());
 
+                if ext.env_info().number >= 22431084 {
+                    let (target, is_eip7702) = ext.parse_7702_delegation(&address);
+                    if is_eip7702 {
+                        // log::info!("EIP7702 detected before gas={:?} target={:?}", gas, target);
+                        // log::info!("if al_contains_address target={:?}", target);
+                        if ext.al_contains_address(&target) {
+                            gas = overflowing!(gas.overflow_add(schedule.warm_storage_read_cost.into()));
+                        } else {
+                            gas = overflowing!(gas.overflow_add(schedule.cold_account_access_cost.into()));
+                        }
+                        // log::info!("EIP7702 detected after gas={:?}", gas);
+                    }
+                }
+                
                 let mem = cmp::max(
                     mem_needed(stack.peek(4), stack.peek(5))?,
                     mem_needed(stack.peek(2), stack.peek(3))?,

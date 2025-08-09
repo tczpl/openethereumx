@@ -876,7 +876,7 @@ impl<Cost: CostType> Interpreter<Cost> {
 
                 let (target, is_eip7702) = ext.parse_7702_delegation(&code_address);
                 if is_eip7702 {
-                    log::info!("EIP7702 al_insert_address target={:?}", target);
+                    // log::info!("EIP7702 al_insert_address target={:?}", target);
                     ext.al_insert_address(target);
                 }
 
