@@ -449,7 +449,8 @@ impl<'x> OpenBlock<'x> {
             let address = one_log.address;
 
             if address == deposit_contract_address && topics.len() > 0 && topics[0] == deposit_topic {
-                info!("parse_deposit_logs deposit_log={:?}", one_log);
+                // info!("parse_deposit_logs deposit_log={:?}", one_log);
+                // why not panic here?
             }
         }
     }
@@ -476,16 +477,16 @@ impl<'x> OpenBlock<'x> {
         })
         .fake_sign(from);
 
-        info!("begin root={:?}", self.block.state.root().clone());
+        // info!("begin root={:?}", self.block.state.root().clone());
         let outcome = self.block.state.apply(
             &env_info,
             self.engine.machine(),
             &t,
             self.block.traces.is_enabled(),
         );
-        info!("withdrawal_queue receipt={:?}", outcome.unwrap().receipt);
+        // info!("withdrawal_queue receipt={:?}", outcome.unwrap().receipt);
         self.block.state.commit();
-        info!("end root={:?}", self.block.state.root().clone());
+        // info!("end root={:?}", self.block.state.root().clone());
     }
 
     pub fn process_consolidation_queue(&mut self){
@@ -509,7 +510,7 @@ impl<'x> OpenBlock<'x> {
         })
         .fake_sign(from);
 
-        info!("begin root={:?}", self.block.state.root().clone());
+        // info!("begin root={:?}", self.block.state.root().clone());
         let outcome = self.block.state.apply(
             &env_info,
             self.engine.machine(),
@@ -517,7 +518,7 @@ impl<'x> OpenBlock<'x> {
             self.block.traces.is_enabled(),
         );
         self.block.state.commit();
-        info!("end root={:?}", self.block.state.root().clone());
+        // info!("end root={:?}", self.block.state.root().clone());
     }   
 
 
@@ -873,8 +874,8 @@ pub(crate) fn enact(
     if header.number() >= 22431084 {
         b.process_parent_block_hash(*header.parent_hash());
     }
-    info!("header.number()={:?}", header.number());
-    info!("header.hash()={:?}", header.hash());
+    // info!("header.number()={:?}", header.number());
+    // info!("header.hash()={:?}", header.hash());
 
     // t_nb 8.3 execute transactions one by one
     b.push_transactions(transactions)?;

@@ -1998,7 +1998,7 @@ impl ImportBlock for Client {
 
         // t_nb 2.2 check if parent is known
         let status = self.block_status(BlockId::Hash(unverified.parent_hash()));
-        info!("number={:?} status={:?}", unverified.header.number(), status);
+        // info!("number={:?} status={:?}", unverified.header.number(), status);
         if status == BlockStatus::Unknown {
             // TODO: XBlock just skip this block
             if false && unverified.header.number() > 18498000 {
@@ -3370,7 +3370,7 @@ impl ImportExportBlocks for Client {
             let block = Unverified::from_rlp(bytes, self.engine.params().eip1559_transition)
                 .map_err(|_| "Invalid block rlp")?;
             let number = block.header.number();
-            info!("number={:?}", number);
+            // info!("number={:?}", number);
             while self.queue_info().is_full() {
                 std::thread::sleep(Duration::from_secs(1));
             }

@@ -47,6 +47,7 @@ rls/
 remote-target
 buildrun.sh
 debugrun.sh
+releaserun.sh
 
 17034870_*
 17139377_*

@@ -1218,12 +1218,12 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             TypedTransaction::Legacy(_) => (), //legacy transactions are allways valid
         };
 
-        match t.as_unsigned() {
-            TypedTransaction::SetCodeTransaction(_) => {
-                info!("transact_with_tracer SetCodeTransaction");
-            }
-            _ => (),
-        }
+        // match t.as_unsigned() {
+        //     TypedTransaction::SetCodeTransaction(_) => {
+        //         info!("transact_with_tracer SetCodeTransaction");
+        //     }
+        //     _ => (),
+        // }
 
         // info!("transact_with_tracer 1");
         let sender = t.sender();
@@ -1236,11 +1236,11 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
         let mut gas_refund_for_7702: i128 = 0;
         match t.as_unsigned() {
             TypedTransaction::SetCodeTransaction(setcode_tx) => {
-                info!("transact_with_tracer SetCodeTransaction");
+                // info!("transact_with_tracer SetCodeTransaction");
                 for item in setcode_tx.authorization_list.iter() {
-                    info!("authorization_list item={:?}", item);
+                    // info!("authorization_list item={:?}", item);
                     let recovered_address = item.recover_address();
-                    info!("recovered_address={:?}", recovered_address);
+                    // info!("recovered_address={:?}", recovered_address);
 
                     const PER_EMPTY_ACCOUNT_COST: u64 = 25000;
                     const PER_AUTH_BASE_COST: u64 = 12500;
@@ -1248,7 +1248,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     
                     const MAINNET_CHAIN_ID: u64 = 1;
                     if item.chain_id != U256::zero() && item.chain_id != U256::from(MAINNET_CHAIN_ID) {
-                        info!("recovered_address={:?} chain_id is not valid", recovered_address);
+                        // info!("recovered_address={:?} chain_id is not valid", recovered_address);
                     }
 
                     let nonce_res = self.state.nonce(&recovered_address);
@@ -1258,8 +1258,8 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                                 nonce += U256::from(1);
                             }
                             if nonce != item.nonce {
-                                info!("nonce={:?} item.nonce={:?}", nonce, item.nonce);
-                                info!("recovered_address={:?} nonce is not valid", recovered_address);
+                                // info!("nonce={:?} item.nonce={:?}", nonce, item.nonce);
+                                // info!("recovered_address={:?} nonce is not valid", recovered_address);
                                 continue
                             }
                         }
@@ -1267,18 +1267,18 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     }
 
                     if self.state.exists(&recovered_address)? {
-                        info!("recovered_address={:?} already exists", recovered_address);
+                        // info!("recovered_address={:?} already exists", recovered_address);
                         gas_refund_for_7702 += i128::from(PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST);
                     }
 
-                    info!("base_gas_required={:?} gas_refund_for_7702={:?}", base_gas_required, gas_refund_for_7702);
+                    // info!("base_gas_required={:?} gas_refund_for_7702={:?}", base_gas_required, gas_refund_for_7702);
 
                     self.state.inc_nonce(&recovered_address)?;
 
                     // TODO: zero address
                     if item.address == (Address::default()) {
                         // Delegation to zero address means clear.
-                        info!("delegation to zero address");
+                        // info!("delegation to zero address");
                         self.state.reset_code(&recovered_address, Bytes::new())?
                     }
                     else {
@@ -1286,11 +1286,12 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                         let mut address_to_delegation = Vec::<u8>::new();
                         address_to_delegation.extend_from_slice(&delegation_prefix);
                         address_to_delegation.extend_from_slice(&item.address.as_bytes());
-                        info!("address_to_delegation={:?}", address_to_delegation.to_hex());
+                        // info!("address_to_delegation={:?}", address_to_delegation.to_hex());
                         self.state.reset_code(&recovered_address, address_to_delegation)?;
                     }
+                    // info!("al insert_address recovered_address={:?}", recovered_address);
                     access_list.insert_address(recovered_address);
-                    info!("reset code finished");
+                    // info!("reset code finished");
                 }
                 
             }
@@ -1499,6 +1500,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                         // info!("code={:?}", code);
                         if code.len() == 23 && code.starts_with(&delegation_prefix) {
                             new_code_address = Address::from_slice(&code[3..23]);
+                            params.access_list.insert_address(new_code_address);
                             is_eip7702 = true;
                         }
                     }

@@ -701,7 +701,7 @@ impl SetCodeAuthorization {
         rlp_stream.append(&self.nonce);
         let buf =rlp_stream.out();       
         let message = keccak(buf);
-        info!("message={:?}", message);
+        // info!("message={:?}", message);
         message
     }
 
@@ -741,7 +741,7 @@ impl SetCodeTransactionTx {
 
     // decode bytes by this payload spec: rlp([2, [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas(gasPrice), gasLimit, to, value, data, access_list, senderV, senderR, senderS]])
     pub fn decode(tx: &[u8]) -> Result<UnverifiedTransaction, DecoderError> {
-        info!("decoding set code TX!!!, tx_hex_str={:?}", hex::encode(tx));
+        // info!("decoding set code TX!!!, tx_hex_str={:?}", hex::encode(tx));
         let tx_rlp = &Rlp::new(tx);
 
         // we need to have 12+1 items in this list
