@@ -293,14 +293,14 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 if ext.env_info().number >= 22431084 {
                     let (target, is_eip7702) = ext.parse_7702_delegation(&address);
                     if is_eip7702 {
-                        log::info!("EIP7702 detected before gas={:?} target={:?}", gas, target);
-                        log::info!("if al_contains_address target={:?}", target);
+                        // log::info!("EIP7702 detected before gas={:?} target={:?}", gas, target);
+                        // log::info!("if al_contains_address target={:?}", target);
                         if ext.al_contains_address(&target) {
                             gas = overflowing!(gas.overflow_add(schedule.warm_storage_read_cost.into()));
                         } else {
                             gas = overflowing!(gas.overflow_add(schedule.cold_account_access_cost.into()));
                         }
-                        log::info!("EIP7702 detected after gas={:?}", gas);
+                        // log::info!("EIP7702 detected after gas={:?}", gas);
                     }
                 }
 
