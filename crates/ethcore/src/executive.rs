@@ -1741,7 +1741,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
             let gas_used = t.tx().gas - gas_left_prerefund;
             let max_refund = gas_used / schedule.max_refund_quotient;
 
-            info!("sstore_refunds={:?} refunds_bound={:?} gas_used={:?} max_refund={:?}", sstore_refunds, refunds_bound, gas_used, max_refund);
+            // info!("sstore_refunds={:?} refunds_bound={:?} gas_used={:?} max_refund={:?}", sstore_refunds, refunds_bound, gas_used, max_refund);
 
             cmp::min(max_refund, refunds_bound)
         };
