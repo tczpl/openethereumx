@@ -1256,7 +1256,11 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                         info!("recovered_address is not valid");
                         continue
                     }
-                    
+
+                    access_list.insert_address(recovered_address);
+                    // info!("al insert_address recovered_address={:?}", recovered_address);
+
+
                     let nonce_res = self.state.nonce(&recovered_address);
                     match nonce_res {
                         Ok(mut nonce) => {
@@ -1295,8 +1299,6 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                         // info!("address_to_delegation={:?}", address_to_delegation.to_hex());
                         self.state.reset_code(&recovered_address, address_to_delegation)?;
                     }
-                    // info!("al insert_address recovered_address={:?}", recovered_address);
-                    access_list.insert_address(recovered_address);
                     // info!("reset code finished");
                 }
                 
