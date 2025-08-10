@@ -711,11 +711,16 @@ impl SetCodeAuthorization {
         Signature::from_rsv(&r, &s, self.standard_v)
     }
 
-    pub fn recover_address(&self) -> Address {
+    pub fn recover_address(&self) -> (Address, bool) {
         let signature = self.signature();
         let message = self.message();
-        let public = publickey::recover(&signature, &message).unwrap();
-        public_to_address(&public)
+        let public = publickey::recover(&signature, &message);
+        match public {
+            Ok(public) => {
+                (public_to_address(&public), true)
+            }
+            Err(_) => (Address::zero(), false)
+        }
     }
 }
 
