@@ -1526,7 +1526,13 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     };
                     params.code_address = new_code_address;
                     params.code = new_code;
-                    params.code_hash = new_code_hash;;
+                    params.code_hash = new_code_hash;
+                    if let Some(builtin) = self.machine.builtin(&new_code_address, self.info.number) {
+                        if builtin.is_active(self.info.number) {
+                            info!("7702 builtin found");
+                            params.code_address = address.clone();
+                        }
+                    }
                 }
 
 
