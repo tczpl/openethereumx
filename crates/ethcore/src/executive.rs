@@ -1861,19 +1861,26 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
 
         match result {
             Err(vm::Error::Internal(msg)) => Err(ExecutionError::Internal(msg)),
-            Err(exception) => Ok(Executed {
-                exception: Some(exception),
-                gas: t.tx().gas,
-                gas_used: t.tx().gas,
-                refunded: U256::zero(),
-                cumulative_gas_used: self.info.gas_used + t.tx().gas,
-                logs: vec![],
-                contracts_created: vec![],
-                output: output,
-                trace: trace,
-                vm_trace: vm_trace,
-                state_diff: None,
-            }),
+            Err(exception) => {
+                let mut cumulative_gas_used = self.info.gas_used + t.tx().gas;
+                if self.info.number >= 22431084 {
+                    info!("execution error exception={:?} t.tx().gas={:?} gas_used={:?}", &exception, t.tx().gas, gas_used);
+                    cumulative_gas_used = self.info.gas_used + gas_used;
+                }
+                Ok(Executed {
+                    exception: Some(exception),
+                    gas: t.tx().gas,
+                    gas_used: t.tx().gas,
+                    refunded: U256::zero(),
+                    cumulative_gas_used: cumulative_gas_used,
+                    logs: vec![],
+                    contracts_created: vec![],
+                    output: output,
+                    trace: trace,
+                    vm_trace: vm_trace,
+                    state_diff: None,
+                })
+            },
             Ok(r) => Ok(Executed {
                 exception: if r.apply_state {
                     None
