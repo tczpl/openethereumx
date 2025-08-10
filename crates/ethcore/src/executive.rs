@@ -1248,7 +1248,7 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     const MAINNET_CHAIN_ID: u64 = 1;
                     if item.chain_id != U256::zero() && item.chain_id != U256::from(MAINNET_CHAIN_ID) {
                         info!("chain_id is not valid");
-                        // TODO: why not verify chain_id?
+                        continue
                     }
 
                     let (recovered_address, is_valid) = item.recover_address();
@@ -1264,8 +1264,8 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                                 nonce += U256::from(1);
                             }
                             if nonce != item.nonce {
-                                // info!("nonce={:?} item.nonce={:?}", nonce, item.nonce);
-                                // info!("recovered_address={:?} nonce is not valid", recovered_address);
+                                info!("nonce={:?} item.nonce={:?}", nonce, item.nonce);
+                                info!("recovered_address={:?} nonce is not valid", recovered_address);
                                 continue
                             }
                         }
