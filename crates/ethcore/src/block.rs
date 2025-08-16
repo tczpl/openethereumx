@@ -902,7 +902,10 @@ pub(crate) fn enact(
 
     if header.number() >= 22431084 {
         // get all logs
-        b.parse_deposit_logs();
+        // actually no need
+        // TODO: any trace here?
+        // b.parse_deposit_logs();
+
         b.process_withdrawal_queue();
         b.process_consolidation_queue();
     }
