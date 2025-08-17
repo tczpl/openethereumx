@@ -102,6 +102,8 @@ pub struct Header {
     blob_gas_used: Option<U256>,
     excess_blob_gas: Option<U256>,
     parent_beacon_root: Option<H256>,
+    
+    // XBlock Pectra
     requests_hash: Option<H256>,
 }
 

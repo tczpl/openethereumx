@@ -101,6 +101,9 @@ pub struct Block {
     pub excess_blob_gas: Option<U256>,
     pub parent_beacon_root: Option<H256>,
 
+    // XBlock Pectra
+    pub requests_hash: Option<H256>,
+
 }
 
 /// Block header representation.
@@ -151,6 +154,8 @@ pub struct Header {
     pub blob_gas_used: Option<U256>,
     pub excess_blob_gas: Option<U256>,
     pub parent_beacon_root: Option<H256>,
+
+    pub requests_hash: Option<H256>,
 }
 
 impl Header {
@@ -207,6 +212,13 @@ impl Header {
             parent_beacon_root: {
                 if h.number() >= 19426587 {
                     Some(h.parent_beacon_root())
+                } else {
+                    None
+                }
+            },
+            requests_hash: {
+                if h.number() >= 22431084 {
+                    Some(h.requests_hash())
                 } else {
                     None
                 }

@@ -106,6 +106,8 @@ impl<C: BlockChainClient + 'static> Debug for DebugClient<C> {
                         blob_gas_used: None,
                         excess_blob_gas: None,
                         parent_beacon_root: None,
+
+                        requests_hash: None,
                     },
                     extra_info: vec![
                         ("reason".to_owned(), reason),

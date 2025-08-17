@@ -86,6 +86,37 @@ pub struct Transaction {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_hashes: Option<Vec<H256>>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub authorizations: Option<Vec<Authorization>>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize)]
+pub struct Authorization {
+	pub chain_id: U256,
+	pub address: H160,
+	pub nonce: U256,
+    pub recovered: bool,
+	pub authority: H160,
+}
+
+impl Authorization {
+    pub fn from_list(values: Vec<types::transaction::SetCodeAuthorization>) -> Vec<Authorization> {
+        let mut authorizations = Vec::<Authorization>::new();
+        for value in values {
+            let (authority, recovered) = value.recover_address();
+
+            let authorization = Authorization {
+                chain_id: value.chain_id,
+                address: value.address,
+                nonce: value.nonce,
+                recovered: recovered,
+                authority: authority,
+            };
+            authorizations.push(authorization);
+        }
+        authorizations
+    }
 }
 
 
@@ -276,6 +307,12 @@ impl Transaction {
             None
         };
 
+        let authorizations = if t.tx_type() == TypedTxId::SetCodeTransaction {
+            Some(Authorization::from_list(t.authorizations()))
+        } else {
+            None
+        };
+
 
         Transaction {
             hash: t.hash(),
@@ -311,6 +348,7 @@ impl Transaction {
             access_list,
             max_priority_fee_per_gas,
             blob_hashes,
+            authorizations,
         }
     }
 
@@ -376,6 +414,12 @@ impl Transaction {
             None
         };
 
+        let authorizations = if t.tx_type() == TypedTxId::SetCodeTransaction {
+            Some(Authorization::from_list(t.authorizations()))
+        } else {
+            None
+        };
+
 
         Transaction {
             hash: t.hash(),
@@ -411,6 +455,7 @@ impl Transaction {
             access_list,
             max_priority_fee_per_gas,
             blob_hashes,
+            authorizations,
         }
     }
 

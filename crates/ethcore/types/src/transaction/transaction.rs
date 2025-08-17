@@ -1105,6 +1105,15 @@ impl TypedTransaction {
         }
     }
 
+    pub fn authorizations(&self) ->  Vec<SetCodeAuthorization> {
+        match self {
+            Self::SetCodeTransaction(tx) => tx.authorization_list.clone(),
+            Self::BlobTransaction(tx) => Vec::<SetCodeAuthorization>::default(),
+            Self::EIP1559Transaction(tx) => Vec::<SetCodeAuthorization>::default(),
+            Self::AccessList(tx) => Vec::<SetCodeAuthorization>::default(),
+            Self::Legacy(tx) => Vec::<SetCodeAuthorization>::default(),
+        }
+    }
 
     pub fn effective_priority_fee(&self, block_base_fee: Option<U256>) -> U256 {
         self.effective_gas_price(block_base_fee)

@@ -170,6 +170,10 @@ impl Header {
         self.view().parent_beacon_root()
     }
 
+    pub fn requests_hash(&self) -> H256 {
+        self.view().requests_hash()
+    }
+
 }
 
 /// Owning block body view.

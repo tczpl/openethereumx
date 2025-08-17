@@ -198,6 +198,12 @@ impl<'a> HeaderView<'a> {
         }
     }
 
+    pub fn requests_hash(&self) -> H256 {
+        match self.rlp.rlp.val_at::<H256>(20) {
+            Ok(requests_hash) => requests_hash,
+            Err(_) => Default::default(),
+        }
+    }
 
     /// Returns a vector of seal fields (RLP-decoded).
     /// If eip1559 is true, seal contains also base_fee_per_gas. Otherwise, it contains only seal fields.

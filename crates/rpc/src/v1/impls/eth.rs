@@ -269,6 +269,7 @@ where
                 };
                 let is_shanghai = !is_pending && view.number() >= 17034870;
                 let is_dencun = !is_pending && view.number() >= 19426587;
+                let is_pectra = !is_pending && view.number() >= 22431084;
                 Ok(Some(RichBlock {
                     inner: Block {
                         hash: match is_pending {
@@ -336,6 +337,10 @@ where
                         },
                         parent_beacon_root: match is_dencun {
                             true => Some(view.parent_beacon_root()),
+                            false => None,
+                        },
+                        requests_hash: match is_pectra {
+                            true => Some(view.requests_hash()),
                             false => None,
                         },
 
@@ -520,6 +525,7 @@ where
                 blob_gas_used: None,
                 excess_blob_gas: None,
                 parent_beacon_root: None,
+                requests_hash: None,
             },
             extra_info: extra,
         };
