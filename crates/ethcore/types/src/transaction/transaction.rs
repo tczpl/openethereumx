@@ -712,6 +712,12 @@ impl SetCodeAuthorization {
     }
 
     pub fn recover_address(&self) -> (Address, bool) {
+        let real_upper_bound: U256 = U256::from_dec_str("57896044618658097711785492504343953926418782139537452191302581570759080747168").unwrap();
+        let real_one: U256 = U256::from_dec_str("1").unwrap();
+        
+        if self.r > real_upper_bound || self.s > real_upper_bound || self.r < real_one || self.s < real_one {
+            return (Address::zero(), false)
+        }
         let signature = self.signature();
         let message = self.message();
         let public = publickey::recover(&signature, &message);
