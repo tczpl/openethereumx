@@ -712,10 +712,11 @@ impl SetCodeAuthorization {
     }
 
     pub fn recover_address(&self) -> (Address, bool) {
-        let real_upper_bound: U256 = U256::from_dec_str("57896044618658097711785492504343953926418782139537452191302581570759080747168").unwrap();
-        let real_one: U256 = U256::from_dec_str("1").unwrap();
+        let upper_bound_r: U256 = U256::from_dec_str("115792089237316195423570985008687907852837564279074904382605163141518161494337").unwrap();
+        let upper_bound_s: U256 = U256::from_dec_str("57896044618658097711785492504343953926418782139537452191302581570759080747168").unwrap();
+        let one: U256 = U256::from_dec_str("1").unwrap();
         
-        if self.r > real_upper_bound || self.s > real_upper_bound || self.r < real_one || self.s < real_one {
+        if self.r > upper_bound_r || self.s > upper_bound_s || self.r < one || self.s < one {
             return (Address::zero(), false)
         }
         let signature = self.signature();
