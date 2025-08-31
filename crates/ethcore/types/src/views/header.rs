@@ -155,7 +155,7 @@ impl<'a> HeaderView<'a> {
                 Ok(base_fee) => base_fee,
                 Err(_) => Default::default(),
             }
-        } else if self.rlp.item_count() == 20 {
+        } else if self.rlp.item_count() >= 20 {
             match self.rlp.rlp.val_at::<U256>(15) {
                 Ok(base_fee) => base_fee,
                 Err(_) => Default::default(),
