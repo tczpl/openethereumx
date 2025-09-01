@@ -61,4 +61,5 @@ compare_tx.py
 debug*.json
 *.log
 compare_gasused.py
+testrpc.sh
 # use 1.64.0 please

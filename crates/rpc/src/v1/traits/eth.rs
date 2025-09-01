@@ -205,6 +205,10 @@ pub trait Eth {
     /// Used for submitting mining hashrate.
     #[rpc(name = "eth_submitHashrate")]
     fn submit_hashrate(&self, _: U256, _: H256) -> Result<bool>;
+
+    /// Import a single block from hex-encoded data.
+    #[rpc(name = "eth_importBlock")]
+    fn import_block(&self, _: Bytes) -> Result<H256>;
 }
 
 /// Eth filters rpc api (polling).

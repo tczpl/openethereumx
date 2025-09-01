@@ -1482,4 +1482,20 @@ where
             "Compilation of Solidity via RPC is deprecated".to_string(),
         ))
     }
+
+    fn import_block(&self, block_hex: Bytes) -> Result<H256> {
+        use ethcore::verification::queue::kind::blocks::Unverified;
+        
+        // Convert hex bytes to raw bytes
+        let block_bytes = block_hex.into_vec();
+        // Create Unverified block from the raw bytes, similar to import_blocks method
+        let unverified = Unverified::from_rlp(block_bytes, self.client.engine().params().eip1559_transition)
+            .map_err(|e| errors::invalid_params("Invalid block RLP", e))?;
+
+        // Import the block using the existing import_block method
+        match self.client.import_block(unverified) {
+            Ok(hash) => Ok(hash),
+            Err(e) =>  Ok(H256::zero()),
+        }
+    }
 }

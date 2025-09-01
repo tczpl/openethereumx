@@ -1991,6 +1991,7 @@ impl CallContract for Client {
 impl ImportBlock for Client {
     // t_nb 2.0 import block to client
     fn import_block(&self, unverified: Unverified) -> EthcoreResult<H256> {
+        info!("import_block number={:?}", unverified.header.number());
         // t_nb 2.1 check if header hash is known to us.
         if self.chain.read().is_known(&unverified.hash()) {
             bail!(EthcoreErrorKind::Import(ImportErrorKind::AlreadyInChain));
