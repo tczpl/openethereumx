@@ -391,7 +391,8 @@ impl Importer {
         };
 
         {
-            if !imported_blocks.is_empty() {
+            // TODO: No notify to avoid crashing
+            if false && !imported_blocks.is_empty() {
                 trace!(target:"block_import","Imported block, notify rest of system");
                 let route = ChainRoute::from(import_results.as_ref());
 
@@ -421,6 +422,7 @@ impl Importer {
                 });
             }
         }
+        info!(target:"block_import","Imported blocks: {}", imported_blocks.len());
         trace!(target:"block_import","Flush block to db");
         let db = client.db.read();
         db.key_value().flush().expect("DB flush failed.");
