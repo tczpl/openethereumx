@@ -76,6 +76,8 @@ pub trait Tracer: Send {
 
     fn trace_withdrawal(&mut self, index: u64, validator: u64, address: Address, amount: u64);
 
+    fn trace_authorization(&mut self, chain_id: U256, address: Address, nonce: U256, authority: Address, error: u64);
+
     /// Consumes self and returns all traces.
     fn drain(self) -> Vec<Self::Output>;
 }

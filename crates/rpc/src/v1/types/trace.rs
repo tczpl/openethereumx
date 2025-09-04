@@ -392,6 +392,29 @@ impl From<trace::Withdrawal> for Withdrawal {
     }
 }
 
+/// Authorization action
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Authorization {
+    pub chain_id: U256,
+    pub address: H160,
+    pub nonce: U256,
+    pub authority: H160,
+    pub error: u64,
+}
+
+
+impl From<trace::Authorization> for Authorization {
+    fn from(a: trace::Authorization) -> Self {
+        Authorization {
+            chain_id: a.chain_id,
+            address: a.address,
+            nonce: a.nonce,
+            authority: a.authority,
+            error: a.error,
+        }
+    }
+}
 
 /// Suicide
 #[derive(Debug, Serialize)]
@@ -428,6 +451,8 @@ pub enum Action {
     Reward(Reward),
     // Withdrawal
     Withdrawal(Withdrawal),
+    // Authorization
+    Authorization(Authorization),
 }
 
 impl From<trace::Action> for Action {
@@ -438,6 +463,7 @@ impl From<trace::Action> for Action {
             trace::Action::Suicide(suicide) => Action::Suicide(suicide.into()),
             trace::Action::Reward(reward) => Action::Reward(reward.into()),
             trace::Action::Withdrawal(withdrawal) => Action::Withdrawal(withdrawal.into()),
+            trace::Action::Authorization(authorization) => Action::Authorization(authorization.into()),
         }
     }
 }
@@ -558,6 +584,10 @@ impl Serialize for LocalizedTrace {
                 struc.serialize_field("type", "withdrawal")?;
                 struc.serialize_field("action", withdrawal)?;
             }
+            Action::Authorization(ref authorization) => {
+                struc.serialize_field("type", "authorization")?;
+                struc.serialize_field("action", authorization)?;
+            }
         }
 
         match self.result {
@@ -633,6 +663,10 @@ impl Serialize for Trace {
             Action::Withdrawal(ref withdrawal) => {
                 struc.serialize_field("type", "withdrawal")?;
                 struc.serialize_field("action", withdrawal)?;
+            }
+            Action::Authorization(ref authorization) => {
+                struc.serialize_field("type", "authorization")?;
+                struc.serialize_field("action", authorization)?;
             }
         }
 

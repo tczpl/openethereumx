@@ -205,9 +205,30 @@ pub struct Withdrawal {
     pub amount: u64,
 }
 
+/// Authorization action
+#[derive(Debug, Clone, PartialEq)]
+pub struct Authorization {
+    pub chain_id: U256,
+    pub address: Address,
+    pub nonce: U256,
+    pub authority: Address,
+    pub error: u64,
+}
+// Authrorization error
+const AUTHORIZATION_VALID: u64 = 0;
+const AUTHORIZATION_INVALID_AUTHORITY: u64 = 1;
+const AUTHORIZATION_INVALID_CHAIN_ID: u64 = 2;
+const AUTHORIZATION_INVALID_NONCE: u64 = 3;
 
 impl Withdrawal {
     /// Return reward action bloom.
+    pub fn bloom(&self) -> Bloom {
+        BloomInput::Raw(self.address.as_bytes()).into()
+    }
+}
+
+impl Authorization {
+    /// Return authorization action bloom.
     pub fn bloom(&self) -> Bloom {
         BloomInput::Raw(self.address.as_bytes()).into()
     }
@@ -265,7 +286,30 @@ impl Decodable for Withdrawal {
     }
 }
 
+impl Encodable for Authorization {
+    fn rlp_append(&self, s: &mut RlpStream) {
+        s.begin_list(5);
+        s.append(&self.chain_id);
+        s.append(&self.address);
+        s.append(&self.nonce);
+        s.append(&self.authority);
+        s.append(&self.error);
+    }
+}
 
+impl Decodable for Authorization {
+    fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
+        let res = Authorization {
+            chain_id: rlp.val_at(0)?,
+            address: rlp.val_at(1)?,
+            nonce: rlp.val_at(2)?,
+            authority: rlp.val_at(3)?,
+            error: rlp.val_at(4)?,
+        }; 
+
+        Ok(res)
+    }
+}
 
 /// Suicide action.
 #[derive(Debug, Clone, PartialEq, RlpEncodable, RlpDecodable)]
@@ -301,6 +345,8 @@ pub enum Action {
     Reward(Reward),
     // Withdrawal,
     Withdrawal(Withdrawal),
+    // Authorization
+    Authorization(Authorization),
 }
 
 impl Encodable for Action {
@@ -327,6 +373,10 @@ impl Encodable for Action {
                 s.append(&4u8);
                 s.append(withdrawal);
             }
+            Action::Authorization(ref authorization) => {
+                s.append(&5u8);
+                s.append(authorization);
+            }
         }
     }
 }
@@ -340,6 +390,7 @@ impl Decodable for Action {
             2 => rlp.val_at(1).map(Action::Suicide),
             3 => rlp.val_at(1).map(Action::Reward),
             4 => rlp.val_at(1).map(Action::Withdrawal),
+            5 => rlp.val_at(1).map(Action::Authorization),
             _ => Err(DecoderError::Custom("Invalid action type.")),
         }
     }
@@ -354,6 +405,7 @@ impl Action {
             Action::Suicide(ref suicide) => suicide.bloom(),
             Action::Reward(ref reward) => reward.bloom(),
             Action::Withdrawal(ref withdrawal) => withdrawal.bloom(),
+            Action::Authorization(ref authorization) => authorization.bloom(),
         }
     }
 }

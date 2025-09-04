@@ -129,6 +129,9 @@ impl Filter {
             Action::Withdrawal(ref withdrawal) => {
                 self.from_address.matches_all() && self.to_address.matches(&withdrawal.address)
             }
+            Action::Authorization(ref authorization) => {
+                self.from_address.matches_all() && self.to_address.matches(&authorization.address)
+            }
         }
     }
 }

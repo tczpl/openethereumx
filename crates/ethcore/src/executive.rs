@@ -33,6 +33,11 @@ use types::transaction::{Action, SignedTransaction, TypedTransaction};
 use vm::{
     self, AccessList, ActionParams, ActionValue, CleanDustMode, CreateContractAddress, EnvInfo, Ext, ResumeCall, ResumeCreate, ReturnData, Schedule, TrapError
 };
+// Authrorization error
+const AUTHORIZATION_VALID: u64 = 0;
+const AUTHORIZATION_INVALID_AUTHORITY: u64 = 1;
+const AUTHORIZATION_INVALID_CHAIN_ID: u64 = 2;
+const AUTHORIZATION_INVALID_NONCE: u64 = 3;
 
 use crate::state::TransientStorage;
 use rustc_hex::FromHex;
@@ -1246,14 +1251,17 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     base_gas_required += U256::from(PER_EMPTY_ACCOUNT_COST);
                     
                     const MAINNET_CHAIN_ID: u64 = 1;
-                    if item.chain_id != U256::zero() && item.chain_id != U256::from(MAINNET_CHAIN_ID) {
-                        info!("chain_id is not valid");
-                        continue
-                    }
 
                     let (recovered_address, is_valid) = item.recover_address();
                     if !is_valid {
                         info!("recovered_address is not valid");
+                        tracer.trace_authorization(item.chain_id, item.address, item.nonce, recovered_address, AUTHORIZATION_INVALID_AUTHORITY);
+                        continue
+                    }
+
+                    if item.chain_id != U256::zero() && item.chain_id != U256::from(MAINNET_CHAIN_ID) {
+                        info!("chain_id is not valid");
+                        tracer.trace_authorization(item.chain_id, item.address, item.nonce, recovered_address, AUTHORIZATION_INVALID_CHAIN_ID);
                         continue
                     }
 
@@ -1270,11 +1278,13 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                             if nonce != item.nonce {
                                 info!("nonce={:?} item.nonce={:?}", nonce, item.nonce);
                                 info!("recovered_address={:?} nonce is not valid", recovered_address);
+                                tracer.trace_authorization(item.chain_id, item.address, item.nonce, recovered_address, AUTHORIZATION_INVALID_NONCE);
                                 continue
                             }
                         }
                         Err(_) => ()
                     }
+                    tracer.trace_authorization(item.chain_id, item.address, item.nonce, recovered_address, AUTHORIZATION_VALID);
 
                     if self.state.exists(&recovered_address)? {
                         // info!("recovered_address={:?} already exists", recovered_address);

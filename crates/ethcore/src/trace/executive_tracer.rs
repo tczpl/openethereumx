@@ -25,6 +25,7 @@ use trace::{
         Action, Call, CallResult, Create, CreateResult, MemoryDiff, Res, Reward, RewardType,
         StorageDiff, Suicide, VMExecutedOperation, VMOperation, VMTrace,
         Withdrawal,
+        Authorization,
     },
     FlatTrace, Tracer, VMTracer,
 };
@@ -223,6 +224,31 @@ impl Tracer for ExecutiveTracer {
             trace_address: self.index_stack.clone(),
         };
         debug!(target: "trace", "Traced withdrawal {:?}", trace);
+        self.traces.push(trace);
+
+        if let Some(index) = self.index_stack.last_mut() {
+            *index += 1;
+        }
+    }
+
+    fn trace_authorization(&mut self, chain_id: U256, address: Address, nonce: U256, authority: Address, error: u64) {
+        if let Some(parentlen) = self.sublen_stack.last_mut() {
+            *parentlen += 1;
+        }
+        
+        let trace = FlatTrace {
+            subtraces: 0,
+            action: Action::Authorization(Authorization {
+                chain_id,
+                address,
+                nonce,
+                authority,
+                error,
+            }),
+            result: Res::None,
+            trace_address: self.index_stack.clone(),
+        };
+        debug!(target: "trace", "Traced authorization {:?}", trace);
         self.traces.push(trace);
 
         if let Some(index) = self.index_stack.last_mut() {
