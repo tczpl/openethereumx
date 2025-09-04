@@ -227,6 +227,9 @@ where
                 params_type: vm::ParamsType::Separate,
                 access_list: AccessList::default(),
                 blob_hashes: self.origin_info.blob_hashes.clone(),
+                is_eip7702: false,
+                original_code_address: Address::default(),
+                parsed_code_address: Address::default(),
             };
 
             let mut ex = Executive::new(self.state, self.env_info, self.machine, self.schedule);
@@ -317,6 +320,9 @@ where
             params_type: vm::ParamsType::Embedded,
             access_list: self.substate.access_list.clone(),
             blob_hashes: self.origin_info.blob_hashes.clone(),
+            is_eip7702: false,
+            original_code_address: Address::default(),
+            parsed_code_address: Address::default(),
         };
 
         if !self.static_flag {
@@ -442,6 +448,9 @@ where
             params_type: vm::ParamsType::Separate,
             access_list: self.substate.access_list.clone(),
             blob_hashes: self.origin_info.blob_hashes.clone(),
+            is_eip7702: false,
+            original_code_address: Address::default(),
+            parsed_code_address: Address::default(),
         };
 
         if is_eip7702 && self.env_info.number >= 22431084 {
@@ -453,6 +462,9 @@ where
                 Ok((code, hash)) => (code, hash),
                 Err(_) => return Ok(MessageCallResult::Failed),
             };
+            params.is_eip7702 = true;
+            params.original_code_address = params.code_address.clone();
+            params.parsed_code_address = new_code_address.clone();
             params.code_address = new_code_address;
             params.code = new_code;
             params.code_hash = new_code_hash;

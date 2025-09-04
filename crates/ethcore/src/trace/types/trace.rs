@@ -66,6 +66,10 @@ pub struct Call {
     pub input: Bytes,
     /// The type of the call.
     pub call_type: CallType,
+
+    pub is_eip7702: bool,
+    pub original_code_address: Address,
+    pub parsed_code_address: Address,
 }
 
 // TODO: Key here
@@ -79,6 +83,9 @@ impl From<ActionParams> for Call {
                 gas: p.gas,
                 input: p.data.unwrap_or_else(Vec::new),
                 call_type: p.call_type,
+                is_eip7702: p.is_eip7702,
+                original_code_address: p.original_code_address,
+                parsed_code_address: p.parsed_code_address,
             },
             _ => Call {
                 from: p.sender,
@@ -87,6 +94,9 @@ impl From<ActionParams> for Call {
                 gas: p.gas,
                 input: p.data.unwrap_or_else(Vec::new),
                 call_type: p.call_type,
+                is_eip7702: p.is_eip7702,
+                original_code_address: p.original_code_address,
+                parsed_code_address: p.parsed_code_address,
             },
         }
     }

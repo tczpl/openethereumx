@@ -302,6 +302,10 @@ pub struct Call {
     input: Bytes,
     /// The type of the call.
     call_type: CallType,
+
+    is_eip7702: bool,
+    original_code_address: H160,
+    parsed_code_address: H160,
 }
 
 impl From<trace::Call> for Call {
@@ -313,6 +317,9 @@ impl From<trace::Call> for Call {
             gas: c.gas,
             input: c.input.into(),
             call_type: c.call_type.into(),
+            is_eip7702: c.is_eip7702,
+            original_code_address: c.original_code_address,
+            parsed_code_address: c.parsed_code_address,
         }
     }
 }

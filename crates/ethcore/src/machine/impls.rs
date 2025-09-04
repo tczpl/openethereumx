@@ -201,6 +201,9 @@ impl EthereumMachine {
             params_type: ParamsType::Separate,
             access_list: AccessList::default(),
             blob_hashes: Vec::<H256>::default(),
+            is_eip7702: false,
+            original_code_address: Address::default(),
+            parsed_code_address: Address::default(),
         };
         let schedule = self.schedule(env_info.number);
         let mut ex = Executive::new(&mut state, &env_info, self, &schedule);

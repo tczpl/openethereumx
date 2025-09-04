@@ -1462,6 +1462,9 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     params_type: vm::ParamsType::Embedded,
                     access_list: access_list,
                     blob_hashes: t.blob_hashes(),
+                    is_eip7702: false,
+                    original_code_address: Address::default(),
+                    parsed_code_address: Address::default(),
                 };
                 let res = self.create(params, &mut substate, &mut tracer, &mut vm_tracer);
                 let out = match &res {
@@ -1487,6 +1490,9 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                     params_type: vm::ParamsType::Separate,
                     access_list: access_list,
                     blob_hashes: t.blob_hashes(),
+                    is_eip7702: false,
+                    original_code_address: Address::default(),
+                    parsed_code_address: Address::default(),
                 };
 
                 
@@ -1524,6 +1530,9 @@ impl<'a, B: 'a + StateBackend> Executive<'a, B> {
                         Ok((code, hash)) => (code, hash),
                         Err(_) => (None, None)
                     };
+                    params.is_eip7702 = true;
+                    params.original_code_address = params.code_address.clone();
+                    params.parsed_code_address = new_code_address.clone();
                     params.code_address = new_code_address;
                     params.code = new_code;
                     params.code_hash = new_code_hash;

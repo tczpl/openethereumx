@@ -94,6 +94,10 @@ pub struct ActionParams {
     pub access_list: AccessList,
 
     pub blob_hashes: Vec<H256>,
+
+    pub is_eip7702: bool,
+    pub original_code_address: Address,
+    pub parsed_code_address: Address,
 }
 
 impl Default for ActionParams {
@@ -114,6 +118,9 @@ impl Default for ActionParams {
             params_type: ParamsType::Separate,
             access_list: AccessList::default(),
             blob_hashes: Vec::<H256>::default(),
+            is_eip7702: false,
+            original_code_address: Address::default(),
+            parsed_code_address: Address::default(),
         }
     }
 }
@@ -139,6 +146,9 @@ impl From<ethjson::vm::Transaction> for ActionParams {
             params_type: ParamsType::Separate,
             access_list: AccessList::default(),
             blob_hashes: t.blob_hashes,
+            is_eip7702: false,
+            original_code_address: Address::default(),
+            parsed_code_address: Address::default(),
         }
     }
 }

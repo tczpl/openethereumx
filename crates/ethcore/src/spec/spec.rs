@@ -883,6 +883,9 @@ impl Spec {
                         params_type: ParamsType::Embedded,
                         access_list: AccessList::default(),
                         blob_hashes: Vec::<H256>::default(),
+                        is_eip7702: false,
+                        original_code_address: Address::default(),
+                        parsed_code_address: Address::default(),
                     };
 
                     let mut substate = Substate::new();
