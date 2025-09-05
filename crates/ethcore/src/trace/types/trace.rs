@@ -52,7 +52,7 @@ impl CreateResult {
 }
 
 /// Description of a _call_ action, either a `CALL` operation or a message transaction.
-#[derive(Debug, Clone, PartialEq, RlpEncodable, RlpDecodable)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Call {
     /// The sending account.
     pub from: Address,
@@ -70,6 +70,45 @@ pub struct Call {
     pub is_eip7702: bool,
     pub original_code_address: Address,
     pub parsed_code_address: Address,
+}
+
+impl Encodable for Call {
+    fn rlp_append(&self, s: &mut RlpStream) {
+        s.begin_list(9);
+        s.append(&self.from);
+        s.append(&self.to);
+        s.append(&self.value);
+        s.append(&self.gas);
+        s.append(&self.input);
+        s.append(&self.call_type);
+        s.append(&self.is_eip7702);
+        s.append(&self.original_code_address);
+        s.append(&self.parsed_code_address);
+    }
+}
+
+impl Decodable for Call {
+    fn decode(rlp: &Rlp) -> Result<Self, DecoderError> {
+        let mut res = Call {
+            from: rlp.val_at(0)?,
+            to: rlp.val_at(1)?,
+            value: rlp.val_at(2)?,
+            gas: rlp.val_at(3)?,
+            input: rlp.val_at(4)?,
+            call_type: rlp.val_at(5)?,
+            is_eip7702: false,
+            original_code_address: Address::default(),
+            parsed_code_address: Address::default(),
+        };
+
+        if rlp.item_count()? > 6 {
+            res.is_eip7702 = rlp.val_at(6)?;
+            res.original_code_address = rlp.val_at(7)?;
+            res.parsed_code_address = rlp.val_at(8)?;
+        }
+
+        Ok(res)
+    }
 }
 
 // TODO: Key here

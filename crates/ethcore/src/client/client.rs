@@ -2748,7 +2748,6 @@ impl BlockChainClient for Client {
     }
 
     fn filter_traces(&self, filter: TraceFilter) -> Option<Vec<LocalizedTrace>> {
-        info!("Filter traces begin");
         if !self.tracedb.read().tracing_enabled() {
             return None;
         }
@@ -2770,7 +2769,6 @@ impl BlockChainClient for Client {
             .skip(filter.after.unwrap_or(0))
             .take(filter.count.unwrap_or(usize::max_value()))
             .collect();
-        info!("Filter traces end");
         Some(traces)
     }
 
