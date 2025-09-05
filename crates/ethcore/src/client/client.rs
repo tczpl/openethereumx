@@ -353,6 +353,7 @@ impl Importer {
                             pending,
                             client,
                         );
+                        info!(target:"block_import","Block #{}({}) commited",header.number(),header.hash());
                         trace!(target:"block_import","Block #{}({}) commited",header.number(),header.hash());
                         import_results.push(route);
                         client
@@ -422,7 +423,7 @@ impl Importer {
                 });
             }
         }
-        info!(target:"block_import","Imported blocks: {}", imported_blocks.len());
+        // info!(target:"block_import","Imported blocks: {}", imported_blocks.len());
         trace!(target:"block_import","Flush block to db");
         let db = client.db.read();
         db.key_value().flush().expect("DB flush failed.");
@@ -2747,6 +2748,7 @@ impl BlockChainClient for Client {
     }
 
     fn filter_traces(&self, filter: TraceFilter) -> Option<Vec<LocalizedTrace>> {
+        info!("Filter traces begin");
         if !self.tracedb.read().tracing_enabled() {
             return None;
         }
@@ -2768,6 +2770,7 @@ impl BlockChainClient for Client {
             .skip(filter.after.unwrap_or(0))
             .take(filter.count.unwrap_or(usize::max_value()))
             .collect();
+        info!("Filter traces end");
         Some(traces)
     }
 
