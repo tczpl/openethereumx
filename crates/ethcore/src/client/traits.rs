@@ -369,6 +369,9 @@ pub trait BlockChainClient:
     /// Returns traces matching given filter.
     fn filter_traces(&self, filter: TraceFilter) -> Option<Vec<LocalizedTrace>>;
 
+    /// Returns 7702 calls matching given filter.
+    fn filter_7702_calls(&self, filter: TraceFilter) -> Option<Vec<LocalizedTrace>>;
+
     /// Returns trace with given id.
     fn trace(&self, trace: TraceId) -> Option<LocalizedTrace>;
 

@@ -42,3 +42,13 @@ pub struct LocalizedTrace {
     /// Block hash.
     pub block_hash: H256,
 }
+
+impl LocalizedTrace {
+    pub fn is_eip7702(&self) -> bool {
+        if let Action::Call(call) = &self.action {
+            call.is_eip7702
+        } else {
+            false
+        }
+    }
+}

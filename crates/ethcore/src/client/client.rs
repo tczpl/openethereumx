@@ -94,7 +94,7 @@ use state::{self, State};
 use state_db::StateDB;
 use stats::{PrometheusMetrics, PrometheusRegistry};
 use trace::{
-    self, Database as TraceDatabase, ImportRequest as TraceImportRequest, LocalizedTrace, TraceDB,
+    self, Database as TraceDatabase, ImportRequest as TraceImportRequest, LocalizedTrace, TraceDB
 };
 use transaction_ext::Transaction;
 use verification::{
@@ -2772,6 +2772,33 @@ impl BlockChainClient for Client {
         Some(traces)
     }
 
+    fn filter_7702_calls(&self, filter: TraceFilter) -> Option<Vec<LocalizedTrace>> {
+        if !self.tracedb.read().tracing_enabled() {
+            return None;
+        }
+
+        let start = self.block_number(filter.range.start)?;
+        let end = self.block_number(filter.range.end)?;
+
+        let db_filter = trace::Filter {
+            range: start as usize..end as usize,
+            from_address: filter.from_address.into(),
+            to_address: filter.to_address.into(),
+        };
+
+        let traces = self
+            .tracedb
+            .read()
+            .filter(&db_filter)
+            .into_iter()
+            .skip(filter.after.unwrap_or(0))
+            .take(filter.count.unwrap_or(usize::max_value()))
+            .filter(|trace| trace.is_eip7702())
+            .collect();
+    
+        Some(traces)
+    }
+    
     fn trace(&self, trace: TraceId) -> Option<LocalizedTrace> {
         if !self.tracedb.read().tracing_enabled() {
             return None;

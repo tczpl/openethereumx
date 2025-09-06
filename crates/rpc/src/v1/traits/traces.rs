@@ -31,6 +31,10 @@ pub trait Traces {
     #[rpc(name = "trace_filter")]
     fn filter(&self, _: TraceFilter) -> Result<Option<Vec<LocalizedTrace>>>;
 
+    /// Returns 7702 calls matching given filter.
+    #[rpc(name = "trace_filter_7702_calls")]
+    fn filter_7702_calls(&self, _: TraceFilter) -> Result<Option<Vec<LocalizedTrace>>>;
+
     /// Returns transaction trace at given index.
     #[rpc(name = "trace_get")]
     fn trace(&self, _: H256, _: Vec<Index>) -> Result<Option<LocalizedTrace>>;

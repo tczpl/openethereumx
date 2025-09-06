@@ -68,6 +68,13 @@ where
             .filter_traces(filter.into())
             .map(|traces| traces.into_iter().map(LocalizedTrace::from).collect()))
     }
+    
+    fn filter_7702_calls(&self, filter: TraceFilter) -> Result<Option<Vec<LocalizedTrace>>> {
+        Ok(self
+            .client
+            .filter_7702_calls(filter.into())
+            .map(|traces| traces.into_iter().map(LocalizedTrace::from).collect()))
+    }
 
     fn block_traces(&self, block_number: BlockNumber) -> Result<Option<Vec<LocalizedTrace>>> {
         let id = match block_number {
