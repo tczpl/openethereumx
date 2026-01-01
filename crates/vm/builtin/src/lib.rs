@@ -144,6 +144,7 @@ enum Pricing {
     Linear(Linear),
     Modexp(ModexpPricer),
     Modexp2565(Modexp2565Pricer),
+    Modexp7883(Modexp7883Pricer),
     Bls12Pairing(Bls12PairingPricer),
     Bls12ConstOperations(Bls12ConstOperations),
     Bls12MultiexpG1(Bls12MultiexpPricerG1),
@@ -159,6 +160,7 @@ impl Pricer for Pricing {
             Pricing::Linear(inner) => inner.cost(input),
             Pricing::Modexp(inner) => inner.cost(input),
             Pricing::Modexp2565(inner) => inner.cost(input),
+            Pricing::Modexp7883(inner) => inner.cost(input),
             Pricing::Bls12Pairing(inner) => inner.cost(input),
             Pricing::Bls12ConstOperations(inner) => inner.cost(input),
             Pricing::Bls12MultiexpG1(inner) => inner.cost(input),
@@ -183,6 +185,10 @@ struct ModexpPricer {
 /// The EIP2565 pricing model of modular exponentiation.
 #[derive(Debug)]
 struct Modexp2565Pricer {}
+
+/// The EIP7883 pricing model of modular exponentiation.
+#[derive(Debug)]
+struct Modexp7883Pricer {}
 
 impl Pricer for Linear {
     fn cost(&self, input: &[u8]) -> U256 {
@@ -312,6 +318,40 @@ impl ModexpPricer {
     }
 }
 
+// Helper functions for EIP-2565 and EIP-7883 gas calculations
+fn modexp_bit_length(a: &U256) -> u64 {
+    if a.is_zero() {
+        return 1;
+    }
+    let mut bit_no = 255u64;
+    while bit_no > 0 {
+        if a.bit(bit_no as usize) {
+            return 1 + bit_no as u64;
+        }
+        bit_no -= 1;
+    }
+    1
+}
+
+fn modexp_calculate_iteration_count(
+    exponent_len: u64,
+    exponent_low: &U256,
+    multiplier: u64,
+) -> u64 {
+    let iteration_count = if exponent_len <= 32 && exponent_low.is_zero() {
+        0
+    } else if exponent_len <= 32 {
+        modexp_bit_length(exponent_low).saturating_sub(1)
+    } else {
+        // exp_len > 32
+        multiplier
+            .saturating_mul(exponent_len - 32)
+            .saturating_add(modexp_bit_length(exponent_low).saturating_sub(1))
+    };
+
+    std::cmp::max(iteration_count, 1)
+}
+
 impl Pricer for Modexp2565Pricer {
     fn cost(&self, input: &[u8]) -> U256 {
         fn bit_length(a: &U256) -> u64 {
@@ -360,6 +400,38 @@ impl Pricer for Modexp2565Pricer {
             U256::from(computed)
         };
         std::cmp::max(U256::from(200), cost)
+    }
+}
+
+impl Pricer for Modexp7883Pricer {
+    fn cost(&self, input: &[u8]) -> U256 {
+        let (base_len, exp_len, exp_low, mod_len) = ModexpPricer::parse_input(input);
+
+        if let Some(cost) = ModexpPricer::check_input_boundaries(&base_len, &exp_len, &mod_len) {
+            return cost;
+        }
+
+        let (base_len, exp_len, mod_len) =
+            (base_len.low_u64(), exp_len.low_u64(), mod_len.low_u64());
+
+        // EIP-7883: 
+        // - If max_len <= 32: multiplication_complexity = 16
+        // - If max_len > 32: multiplication_complexity = 2 * words^2
+        let max_len = std::cmp::max(base_len, mod_len);
+        let multiplication_complexity = if max_len <= 32 {
+            16
+        } else {
+            let words = (max_len + 7) / 8; // Equivalent to ceil(max_len / 8)
+            2 * words * words
+        };
+
+        // EIP-7883: iteration multiplier = 16 (doubled from 8 in EIP-2565)
+        let iteration_count = modexp_calculate_iteration_count(exp_len, &exp_low, 16);
+
+        // EIP-7883: divisor = 1 (no division), min_gas = 500
+        let gas = multiplication_complexity * iteration_count;
+
+        std::cmp::max(U256::from(500), U256::from(gas))
     }
 }
 
@@ -562,6 +634,9 @@ impl From<ethjson::spec::builtin::Pricing> for Pricing {
             }),
             ethjson::spec::builtin::Pricing::Modexp2565(_) => {
                 Pricing::Modexp2565(Modexp2565Pricer {})
+            }
+            ethjson::spec::builtin::Pricing::Modexp7883(_) => {
+                Pricing::Modexp7883(Modexp7883Pricer {})
             }
             ethjson::spec::builtin::Pricing::AltBn128Pairing(pricer) => {
                 Pricing::AltBn128Pairing(AltBn128PairingPricer {

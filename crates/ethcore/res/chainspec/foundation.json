@@ -277,6 +277,12 @@
 						"price": {
 							"modexp2565": {}
 						}
+					},
+					"0x1564bd1": {
+						"info": "EIP-7883: ModExp Gas Cost Increase (22_432_721)",
+						"price": {
+							"modexp7883": {}
+						}
 					}
 				}
 			}
