@@ -49,6 +49,11 @@ use c_kzg::{Bytes32, Bytes48, KzgProof, KzgSettings};
 use c_kzg::{BYTES_PER_G1_POINT, BYTES_PER_G2_POINT};
 use rustc_hex::{FromHex, ToHex};
 use derive_more::{AsMut, AsRef, Deref, DerefMut};
+use p256::{
+    ecdsa::{Signature as P256Signature, signature::Signature as SigTrait},
+    EncodedPoint as P256EncodedPoint,
+    elliptic_curve::generic_array::GenericArray,
+};
 
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
 
@@ -720,6 +725,8 @@ enum EthereumBuiltin {
     Bls12MapFpToG1(Bls12MapFpToG1),
     /// bls12_381 fp2 to g2 mapping
     Bls12MapFp2ToG2(Bls12MapFp2ToG2),
+    /// XBlock Fusaka Secp256r1Verify
+    Secp256r1Verify(Secp256r1Verify),
 }
 
 impl FromStr for EthereumBuiltin {
@@ -746,6 +753,7 @@ impl FromStr for EthereumBuiltin {
             "bls12_381_pairing" => Ok(EthereumBuiltin::Bls12Pairing(Bls12Pairing)),
             "bls12_381_fp_to_g1" => Ok(EthereumBuiltin::Bls12MapFpToG1(Bls12MapFpToG1)),
             "bls12_381_fp2_to_g2" => Ok(EthereumBuiltin::Bls12MapFp2ToG2(Bls12MapFp2ToG2)),
+            "secp256r1_verify" => Ok(EthereumBuiltin::Secp256r1Verify(Secp256r1Verify)),
             _ => return Err(format!("invalid builtin name: {}", name)),
         }
     }
@@ -774,6 +782,7 @@ impl Implementation for EthereumBuiltin {
             EthereumBuiltin::Bls12Pairing(inner) => inner.execute(input, output),
             EthereumBuiltin::Bls12MapFpToG1(inner) => inner.execute(input, output),
             EthereumBuiltin::Bls12MapFp2ToG2(inner) => inner.execute(input, output),
+            EthereumBuiltin::Secp256r1Verify(inner) => inner.execute(input, output),
         }
     }
 }
@@ -844,11 +853,116 @@ pub struct Bls12MapFpToG1;
 /// The Bls12MapFp2ToG2 builtin.
 pub struct Bls12MapFp2ToG2;
 
+#[derive(Debug)]
+/// The Secp256r1Verify builtin.
+pub struct Secp256r1Verify;
+
 impl Implementation for Identity {
     fn execute(&self, input: &[u8], output: &mut BytesRef) -> Result<(), &'static str> {
         output.write(0, input);
         Ok(())
     }
+}
+
+impl Implementation for Secp256r1Verify {
+    fn execute(&self, i: &[u8], output: &mut BytesRef) -> Result<(), &'static str> {
+        // RIP-7212: secp256r1 signature verification
+        // Input format (160 bytes): hash(32) || r(32) || s(32) || pubkey_x(32) || pubkey_y(32)
+        // Output: 32 bytes with last byte = 1 if valid, empty otherwise
+        
+        if i.len() != 160 {
+            // Invalid input length, return empty (verification failed)
+            return Ok(());
+        }
+
+        // Parse input components
+        let msg = &i[0..32];
+        let sig_bytes = &i[32..96]; // r(32) + s(32) = 64 bytes
+        let pk_bytes = &i[96..160]; // x(32) + y(32) = 64 bytes
+
+        // Attempt to verify the signature
+        if verify_secp256r1_signature(msg, sig_bytes, pk_bytes) {
+            // Signature is valid, write success result
+            let mut result = [0u8; 32];
+            result[31] = 1;
+            println!("verify_secp256r1_signature success");
+            output.write(0, &result);
+        }
+        // If verification fails, output remains empty
+        println!("output: {:?}", output.to_hex());
+        Ok(())
+    }
+}
+
+/// Verify a secp256r1 (P-256) ECDSA signature.
+/// 
+/// # Arguments
+/// * `msg` - 32-byte message hash
+/// * `sig` - 64-byte signature (r || s)
+/// * `pk` - 64-byte public key (x || y)
+/// 
+/// # Returns
+/// `true` if the signature is valid, `false` otherwise
+fn verify_secp256r1_signature(msg: &[u8], sig: &[u8], pk: &[u8]) -> bool {
+    use p256::elliptic_curve::ops::{Invert, LinearCombination, Reduce};
+    use p256::elliptic_curve::sec1::FromEncodedPoint;
+    use p256::elliptic_curve::subtle::CtOption;
+    use p256::elliptic_curve::{AffineXCoordinate, Field, Group};
+    use p256::{AffinePoint, ProjectivePoint, Scalar};
+    
+    if msg.len() != 32 || sig.len() != 64 || pk.len() != 64 {
+        return false;
+    }
+
+    // Parse signature from bytes (r || s, each 32 bytes)
+    let signature = match <P256Signature as SigTrait>::from_bytes(sig) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+
+    // Parse public key from untagged bytes (x || y coordinates)
+    let pk_array = GenericArray::clone_from_slice(pk);
+    let encoded_point = P256EncodedPoint::from_untagged_bytes(&pk_array);
+    
+    // Convert EncodedPoint to AffinePoint using CtOption
+    let affine_point_opt: CtOption<AffinePoint> = AffinePoint::from_encoded_point(&encoded_point);
+    let affine_point = if let Some(point) = Option::<AffinePoint>::from(affine_point_opt) {
+        point
+    } else {
+        return false;
+    };
+
+    // Convert message to scalar (reduce modulo curve order)
+    let z = Scalar::from_be_bytes_reduced(GenericArray::clone_from_slice(msg));
+    
+    // Manual ECDSA verification (since we can't access hazmat::VerifyPrimitive)
+    // Split signature into r and s components
+    let (r, s) = signature.split_scalars();
+    
+    // Compute s_inv = s^(-1) mod n
+    let s_inv = match Option::<Scalar>::from(s.invert()) {
+        Some(inv) => inv,
+        None => return false,
+    };
+    
+    // Compute u1 = z * s_inv  and  u2 = r * s_inv
+    let u1 = z * s_inv;
+    let u2 = *r * s_inv;
+    
+    // Compute R = u1*G + u2*PublicKey
+    let result_point = ProjectivePoint::lincomb(
+        &ProjectivePoint::generator(),
+        &u1,
+        &ProjectivePoint::from(affine_point),
+        &u2,
+    );
+    
+    // Get x-coordinate of result point and reduce it
+    let x = result_point.to_affine().x();
+    let x_reduced = Scalar::from_be_bytes_reduced(x);
+    
+    // Verify that x == r
+    x_reduced == *r
 }
 
 // copy from revm

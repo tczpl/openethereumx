@@ -412,6 +412,18 @@
 				}
 			}
 		},
+		"0000000000000000000000000000000000000100": {
+			"builtin": {
+				"name": "secp256r1_verify",
+				"activate_at": "0x1564bd1",
+				"pricing": {
+					"linear": {
+						"base": 6900,
+						"word": 0
+					}
+				}
+			}
+		},
 		"0x3282791d6fd713f1e94f4bfd565eaa78b3a0599d": {
 			"balance": "0x487a9a304539440000"
 		},

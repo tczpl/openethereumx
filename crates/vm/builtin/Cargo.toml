@@ -22,6 +22,7 @@ eth_pairings = { git = "https://github.com/matter-labs/eip1962.git", default-fea
 c-kzg = "1.0.0"
 rustc-hex = "1.0"
 derive_more = { version = "0.99"}
+p256 = { version = "0.10", default-features = false, features = ["ecdsa", "arithmetic"] }
 
 [dev-dependencies]
 hex-literal = "0.2.1"

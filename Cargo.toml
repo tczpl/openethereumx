@@ -75,6 +75,7 @@ stats = { path = "crates/util/stats" }
 prometheus = "0.9.0"
 c-kzg = "1.0.0"
 derive_more = { version = "0.99", optional = true }
+libc = "=0.2.89"
 
 # ethcore-secretstore = { path = "crates/util/secret-store", optional = true }
 

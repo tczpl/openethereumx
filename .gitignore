@@ -62,4 +62,5 @@ debug*.json
 *.log
 compare_gasused.py
 testrpc.sh
+compare_first_diff.py
 # use 1.64.0 please
