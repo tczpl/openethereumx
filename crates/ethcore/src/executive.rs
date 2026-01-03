@@ -578,7 +578,7 @@ impl<'a> CallCreateExecutive<'a> {
                         let mut builtin_out_buffer = Vec::new();
                         let result = {
                             let mut builtin_output = BytesRef::Flexible(&mut builtin_out_buffer);
-                            builtin.execute(data, &mut builtin_output)
+                            builtin.execute_with_block_number(data, &mut builtin_output, self.info.number)
                         };
                         if let Err(e) = result {
                             state.revert_to_checkpoint();

@@ -113,6 +113,10 @@ pub const G2_POINTS: &G2Points = {
 pub trait Implementation: Send + Sync {
     /// execute this built-in on the given input, writing to the given output.
     fn execute(&self, input: &[u8], output: &mut BytesRef) -> Result<(), &'static str>;
+    /// execute this built-in on the given input, writing to the given output.
+    fn execute_with_block_number(&self, input: &[u8], output: &mut BytesRef, block_number: u64) -> Result<(), &'static str> {
+        self.execute(input, output)
+    }
 }
 
 /// A gas pricing scheme for built-in contracts.
@@ -595,6 +599,22 @@ impl Builtin {
     #[inline]
     pub fn execute(&self, input: &[u8], output: &mut BytesRef) -> Result<(), &'static str> {
         self.native.execute(input, output)
+    }
+    /// Execute with block number awareness.
+    /// This is primarily for Modexp which has different behavior based on block number.
+    #[inline]
+    pub fn execute_with_block_number(
+        &self, 
+        input: &[u8], 
+        output: &mut BytesRef, 
+        block_number: u64
+    ) -> Result<(), &'static str> {
+        // 检查是否是 Modexp
+        if let EthereumBuiltin::Modexp(modexp) = &self.native {
+            modexp.execute_with_block_number(input, output, block_number)
+        } else {
+            self.native.execute(input, output)
+        }
     }
 
     /// Whether the builtin is activated at the given block number.
@@ -1202,6 +1222,10 @@ fn modexp(mut base: BigUint, exp: Vec<u8>, modulus: BigUint) -> BigUint {
 
 impl Implementation for Modexp {
     fn execute(&self, input: &[u8], output: &mut BytesRef) -> Result<(), &'static str> {
+        self.execute_with_block_number(input, output, 0)
+    }
+
+    fn execute_with_block_number(&self, input: &[u8], output: &mut BytesRef, block_number: u64) -> Result<(), &'static str> {
         let mut reader = input.chain(io::repeat(0));
         let mut buf = [0; 32];
 
@@ -1220,6 +1244,18 @@ impl Implementation for Modexp {
         let base_len = read_len(&mut reader);
         let exp_len = read_len(&mut reader);
         let mod_len = read_len(&mut reader);
+
+
+        let OSAKA: bool = block_number >= 22432721;
+        let OSAKA_INPUT_SIZE_LIMIT: usize = 1024;
+        if OSAKA {
+            if (base_len > OSAKA_INPUT_SIZE_LIMIT
+                || mod_len > OSAKA_INPUT_SIZE_LIMIT
+                || exp_len > OSAKA_INPUT_SIZE_LIMIT) {
+                return Err("ModexpEip7823LimitSize error");
+            }
+        }
+
 
         // Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to handle empty base first.
         let r = if base_len == 0 && mod_len == 0 {
