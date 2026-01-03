@@ -607,6 +607,7 @@ impl<Cost: CostType> Interpreter<Cost> {
             //     && !schedule.have_subs)
             || ((instruction == TLOAD || instruction == TSTORE || instruction == BLOBBASEFEE || instruction==BLOBHASH || instruction==MCOPY)
                  && ext.env_info().number < 19426587)
+            || (instruction == CLZ && ext.env_info().number < 22432721)
         {
             return Err(vm::Error::BadInstruction {
                 instruction: instruction as u8,
@@ -1136,6 +1137,10 @@ impl<Cost: CostType> Interpreter<Cost> {
                 //     println!("MCOPY after={:?}", self.mem.as_slice());
                 // }
                 // ignore
+            }
+            instructions::CLZ => {
+                let target = self.stack.pop_back();
+                self.stack.push(U256::from(target.leading_zeros()));
             }
 
             instructions::MSIZE => {

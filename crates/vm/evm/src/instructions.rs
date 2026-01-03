@@ -101,6 +101,9 @@ enum_with_from_u8! {
         #[doc = "arithmetic shift right operation"]
         SAR = 0x1d,
 
+        // XBLOCK Fusaka
+        CLZ = 0x1e,        
+
         #[doc = "compute SHA3-256 hash"]
         SHA3 = 0x20,
 
@@ -549,6 +552,10 @@ lazy_static! {
         arr[MSIZE as usize] = Some(InstructionInfo::new("MSIZE", 0, 1, GasPriceTier::Base));
         arr[GAS as usize] = Some(InstructionInfo::new("GAS", 0, 1, GasPriceTier::Base));
         arr[JUMPDEST as usize] = Some(InstructionInfo::new("JUMPDEST", 0, 0, GasPriceTier::Special));
+
+        // XBlock Fusaka
+        arr[CLZ as usize] = Some(InstructionInfo::new("CLZ", 1, 1, GasPriceTier::Low));
+
         // XBlock Dencun TODO
         arr[TLOAD as usize] = Some(InstructionInfo::new("TLOAD", 1, 1, GasPriceTier::Special));
         arr[TSTORE as usize] = Some(InstructionInfo::new("TSTORE", 2, 0, GasPriceTier::Special));
