@@ -607,7 +607,7 @@ impl<Cost: CostType> Interpreter<Cost> {
             //     && !schedule.have_subs)
             || ((instruction == TLOAD || instruction == TSTORE || instruction == BLOBBASEFEE || instruction==BLOBHASH || instruction==MCOPY)
                  && ext.env_info().number < 19426587)
-            || (instruction == CLZ && ext.env_info().number < 22432721)
+            || (instruction == CLZ && ext.env_info().number < 23935694)
         {
             return Err(vm::Error::BadInstruction {
                 instruction: instruction as u8,

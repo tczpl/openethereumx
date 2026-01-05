@@ -1246,7 +1246,7 @@ impl Implementation for Modexp {
         let mod_len = read_len(&mut reader);
 
 
-        let OSAKA: bool = block_number >= 22432721;
+        let OSAKA: bool = block_number >= 23935694;
         let OSAKA_INPUT_SIZE_LIMIT: usize = 1024;
         if OSAKA {
             if (base_len > OSAKA_INPUT_SIZE_LIMIT
