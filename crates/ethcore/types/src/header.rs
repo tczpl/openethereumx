@@ -264,30 +264,26 @@ impl Header {
         }
 
         let MIN_BLOB_GASPRICE =  1;
+        let mut BLOB_GASPRICE_UPDATE_FRACTION = 0;
 
         if self.number < 22431084 {
-            let BLOB_GASPRICE_UPDATE_FRACTION = 3338477;
-            let ret = self.fake_exponential(
-                MIN_BLOB_GASPRICE,
-                self.excess_blob_gas.unwrap().as_u64(),
-                BLOB_GASPRICE_UPDATE_FRACTION,
-            );
-            ret
+            BLOB_GASPRICE_UPDATE_FRACTION = 3338477;
+        } else if self.number < 23975778{
+            BLOB_GASPRICE_UPDATE_FRACTION = 5007716;
         } else {
-            let BLOB_GASPRICE_UPDATE_FRACTION = 5007716;
-            let ret = self.fake_exponential(
-                MIN_BLOB_GASPRICE,
-                self.excess_blob_gas.unwrap().as_u64(),
-                BLOB_GASPRICE_UPDATE_FRACTION,
-            );
-            ret
+            BLOB_GASPRICE_UPDATE_FRACTION = 8346193;
         }
-        
+        let ret = self.fake_exponential(
+            MIN_BLOB_GASPRICE,
+            self.excess_blob_gas.unwrap().as_u64(),
+            BLOB_GASPRICE_UPDATE_FRACTION,
+        );
+        ret
     }
 
 
     // copy from https://github.com/bluealloy/revm
-    pub fn fake_exponential(&self, factor: u64, numerator: u64, denominator: u64) -> u128 {
+    pub fn fake_exponential(&self, factor: u64, numerator: u64, mut denominator: u64) -> u128 {
         assert_ne!(denominator, 0, "attempt to divide by zero");
         let factor = factor as u128;
         let numerator = numerator as u128;
