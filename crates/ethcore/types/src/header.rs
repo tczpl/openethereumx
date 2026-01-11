@@ -270,8 +270,10 @@ impl Header {
             BLOB_GASPRICE_UPDATE_FRACTION = 3338477;
         } else if self.number < 23975778{
             BLOB_GASPRICE_UPDATE_FRACTION = 5007716;
-        } else {
+        } else if self.timestamp < 1767747671{ // TODO BPO2 time confirmation
             BLOB_GASPRICE_UPDATE_FRACTION = 8346193;
+        } else {
+            BLOB_GASPRICE_UPDATE_FRACTION = 11684671;
         }
         let ret = self.fake_exponential(
             MIN_BLOB_GASPRICE,
