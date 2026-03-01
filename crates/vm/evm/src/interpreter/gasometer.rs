@@ -362,7 +362,7 @@ impl<Gas: evm::CostType> Gasometer<Gas> {
                 if ext.env_info().number >= 17034870 {
                     let base = Gas::from(schedule.create_gas);
                     let size_u256 = *len;
-	                let mut more_gas_u256 = U256::from(2+6) * ((size_u256 + U256::from(31)) / U256::from(32));
+                    let mut more_gas_u256 = U256::from(2) * ((size_u256 + U256::from(31)) / U256::from(32));
                     if size_u256 > U256::from(49152) {
                         more_gas_u256 = U256::from(1008610086); // TODO: make it better
                     }
