@@ -416,31 +416,33 @@ impl Pricer for Modexp7883Pricer {
     fn cost(&self, input: &[u8]) -> U256 {
         let (base_len, exp_len, exp_low, mod_len) = ModexpPricer::parse_input(input);
 
-        if let Some(cost) = ModexpPricer::check_input_boundaries(&base_len, &exp_len, &mod_len) {
-            return cost;
-        }
-
-        let (base_len, exp_len, mod_len) =
-            (base_len.low_u64(), exp_len.low_u64(), mod_len.low_u64());
-
-        // EIP-7883: 
-        // - If max_len <= 32: multiplication_complexity = 16
-        // - If max_len > 32: multiplication_complexity = 2 * words^2
-        let max_len = std::cmp::max(base_len, mod_len);
-        let multiplication_complexity = if max_len <= 32 {
-            16
+        let cost = if let Some(cost) =
+            ModexpPricer::check_input_boundaries(&base_len, &exp_len, &mod_len)
+        {
+            cost
         } else {
-            let words = (max_len + 7) / 8; // Equivalent to ceil(max_len / 8)
-            2 * words * words
+            let (base_len, exp_len, mod_len) =
+                (base_len.low_u64(), exp_len.low_u64(), mod_len.low_u64());
+
+            // EIP-7883:
+            // - If max_len <= 32: multiplication_complexity = 16
+            // - If max_len > 32: multiplication_complexity = 2 * words^2
+            let max_len = std::cmp::max(base_len, mod_len);
+            let multiplication_complexity = if max_len <= 32 {
+                16
+            } else {
+                let words = (max_len + 7) / 8; // Equivalent to ceil(max_len / 8)
+                2 * words * words
+            };
+
+            // EIP-7883: iteration multiplier = 16 (doubled from 8 in EIP-2565)
+            let iteration_count = modexp_calculate_iteration_count(exp_len, &exp_low, 16);
+
+            // EIP-7883: divisor = 1 (no division)
+            U256::from(multiplication_complexity * iteration_count)
         };
-
-        // EIP-7883: iteration multiplier = 16 (doubled from 8 in EIP-2565)
-        let iteration_count = modexp_calculate_iteration_count(exp_len, &exp_low, 16);
-
-        // EIP-7883: divisor = 1 (no division), min_gas = 500
-        let gas = multiplication_complexity * iteration_count;
-
-        std::cmp::max(U256::from(500), U256::from(gas))
+        // EIP-7883: min_gas = 500
+        std::cmp::max(U256::from(500), cost)
     }
 }
 
